@@ -61,6 +61,9 @@ public class RunContextInitializer {
     @Inject
     protected RunContextCache runContextCache;
 
+    @Inject
+    protected WorkerLazyOutputProviderFactory workerLazyOutputProviderFactory;
+
     @Value("${kestra.environment.name}")
     @Nullable
     protected String kestraEnvironment;
@@ -148,11 +151,12 @@ public class RunContextInitializer {
             variables.put("taskrun", taskrun);
         }
 
-        // Rehydrate outputs (EE override point)
-        Object outputs = variables.getOrDefault("outputs", Map.of());
-        if (outputs instanceof Map) {
-            variables.put("outputs", rehydrateOutputs((Map<String, Object>) outputs));
-        }
+        // outputs are stripped by WorkerTaskData — rebuild lazily via the provider
+        LazyOutputProvider provider = workerLazyOutputProviderFactory.create(
+            workerTask.getTaskRun().getTenantId(),
+            workerTask.getTaskRun().getExecutionId()
+        );
+        variables.put("outputs", new LazyOutputsMap(provider));
 
         final RunContextLogger runContextLogger = contextLoggerFactory.create(workerTask);
         addSecretConsumer(variables, runContextLogger);
