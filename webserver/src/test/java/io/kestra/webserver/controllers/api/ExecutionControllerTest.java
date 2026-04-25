@@ -426,6 +426,7 @@ class ExecutionControllerTest {
     }
 
     @Test
+    @LoadFlows(value = { "flows/valids/inputs.yaml" })
     void shouldValidateInputsForCreateExecutionGivenSimpleInputs() {
         // given
         String namespace = "io.kestra.tests";
