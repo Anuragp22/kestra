@@ -118,6 +118,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.inject.Inject;
+import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -661,6 +662,28 @@ public class ExecutionController {
         @Parameter(description = "Specific execution kind") @QueryValue Optional<ExecutionKind> kind) {
         Flow flow = flowService.getFlowIfExecutableOrThrow(tenantService.resolveTenant(), namespace, id, revision);
         List<Label> parsedLabels = parseLabels(labels);
+
+        // Drafts can be saved with constraint violations. When the user explicitly executes one
+        // (by passing the revision) the request is accepted but the execution is created already
+        // FAILED, with the validation error logged so it surfaces in the UI's execution log.
+        Optional<ConstraintViolationException> violations = flowService.validateForExecution(flow);
+        if (violations.isPresent()) {
+            Execution failedExecution = Execution.newExecution(flow, null, parsedLabels, scheduleDate)
+                .toBuilder()
+                .kind(kind.orElse(null))
+                .build()
+                .withState(State.Type.FAILED);
+            Logs.logExecution(failedExecution, log, Level.ERROR,
+                "Flow execution failed: flow definition is invalid. {}", violations.get().getMessage());
+            try {
+                executionQueue.emit(failedExecution);
+                eventPublisher.publishEvent(CrudEvent.create(failedExecution));
+            } catch (QueueException e) {
+                return Mono.error(e);
+            }
+            return Mono.just(ExecutionResponse.fromExecution(failedExecution, executionUrl(failedExecution)));
+        }
+
         final Execution current = Execution.newExecution(flow, null, parsedLabels, scheduleDate).toBuilder()
             .kind(kind.orElse(null))
             .breakpoints(breakpoints.map(s -> Arrays.stream(s.split(",")).map(Breakpoint::of).toList()).orElse(null))

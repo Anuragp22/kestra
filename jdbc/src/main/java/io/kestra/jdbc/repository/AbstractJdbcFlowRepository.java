@@ -893,7 +893,10 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
     public FlowWithSource update(GenericFlow flow, FlowInterface previous) throws ConstraintViolationException {
         // Check Flow with defaults
         FlowWithSource flowWithDefault = pluginDefaultService.injectAllDefaults(flow, false);
-        modelValidator.validate(flowWithDefault);
+        // Drafts are allowed to be saved invalid - they will fail at execution time instead.
+        if (!flowWithDefault.isDraft()) {
+            modelValidator.validate(flowWithDefault);
+        }
 
         Flow previousFlow;
         if (previous instanceof Flow o) {

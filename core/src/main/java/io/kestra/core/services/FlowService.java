@@ -130,7 +130,10 @@ public class FlowService {
         // Validate Flow with defaults values
         // Do not perform a strict parsing validation to ignore unknown
         // properties that might be injecting through default values.
-        modelValidator.validate(pluginDefaultService.injectAllDefaults(parsed, false));
+        // Drafts are allowed to be saved invalid - they will fail at execution time instead.
+        if (!parsed.isDraft()) {
+            modelValidator.validate(pluginDefaultService.injectAllDefaults(parsed, false));
+        }
 
         FlowWithSource created = flowRepository.create(flow);
 
@@ -162,7 +165,10 @@ public class FlowService {
         // Validate Flow with defaults values
         // Do not perform a strict parsing validation to ignore unknown
         // properties that might be injecting through default values.
-        modelValidator.validate(pluginDefaultService.injectAllDefaults(parsed, false));
+        // Drafts are allowed to be saved invalid - they will fail at execution time instead.
+        if (!parsed.isDraft()) {
+            modelValidator.validate(pluginDefaultService.injectAllDefaults(parsed, false));
+        }
 
         FlowWithSource updated = flowRepository.update(flow, previous);
 
@@ -780,6 +786,25 @@ public class FlowService {
             throw new IllegalStateException("Requested Flow is not valid. Error: " + fwe.getException());
         }
         return flow;
+    }
+
+    /**
+     * Validates a flow that is about to be executed. Drafts can be saved with constraint violations
+     * (missing required fields, invalid patterns, ...) so we re-validate at execution time. The
+     * caller decides what to do with the violations - typically: emit a FAILED execution rather than
+     * letting the executor blow up later in an opaque way.
+     *
+     * @param flow The flow to validate.
+     * @return The {@link ConstraintViolationException} carrying the violations, or {@link Optional#empty()} if valid.
+     */
+    public Optional<ConstraintViolationException> validateForExecution(Flow flow) {
+        try {
+            return modelValidator.isValid(pluginDefaultService.injectAllDefaults(flow, false));
+        } catch (FlowProcessingException e) {
+            // The flow could not be processed (e.g., unknown plugin). Surface this as a violation
+            // so the execution fails with the same error path as other invalid flows.
+            return Optional.of(new ConstraintViolationException(e.getMessage(), Set.of()));
+        }
     }
 
     public Stream<FlowTopology> findDependencies(final String tenant, final String namespace, final String id, boolean destinationOnly, boolean expandAll) {

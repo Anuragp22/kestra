@@ -182,6 +182,25 @@ class ExecutionControllerTest {
     }
 
     @Test
+    @LoadFlows(value = { "flows/valids/invalid-draft-flow.yaml" })
+    void executingInvalidDraftReturnsAFailedExecution() {
+        // A draft can be saved with constraint violations (here: empty `tasks` violates @NotEmpty).
+        // Executing it explicitly is accepted (no 4xx) but the execution comes back already FAILED
+        // so the user sees the error in the UI's execution log instead of a confusing crash later.
+        Execution execution = client.toBlocking().retrieve(
+            HttpRequest.POST(
+                "/api/v1/main/executions/" + TESTS_FLOW_NS + "/invalid-draft-flow?revision=1",
+                null
+            ),
+            Execution.class
+        );
+
+        assertThat(execution).isNotNull();
+        assertThat(execution.getId()).isNotNull();
+        assertThat(execution.getState().getCurrent()).isEqualTo(io.kestra.core.models.flows.State.Type.FAILED);
+    }
+
+    @Test
     @LoadFlows(value = { "flows/valids/webhook-dynamic-key.yaml" })
     void webhookDynamicKey() {
         Execution execution = client.toBlocking().retrieve(
