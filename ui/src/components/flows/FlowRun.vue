@@ -4,6 +4,10 @@
             <strong>{{ $t('disabled flow title') }}</strong><br>
             {{ $t('disabled flow desc') }}
         </KsAlert>
+        <el-alert v-if="flow.draft" type="warning" showIcon :closable="false">
+            <strong>{{ $t('draft') }}</strong><br>
+            {{ $t('draft_flow_warning') }}
+        </el-alert>
         <div class="flow-execution-checks-alerts">
             <KsAlert v-for="alert in checks || []" :type="alert.style.toLowerCase()" showIcon :closable="false" :key="alert">
                 {{ alert.message }}

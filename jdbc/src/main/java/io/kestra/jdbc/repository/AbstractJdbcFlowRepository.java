@@ -194,6 +194,10 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
         return JdbcFlowRepositoryService.lastRevision(jdbcRepository, asterisk);
     }
 
+    protected Table<Record> fromLastNonDraftRevision(boolean asterisk) {
+        return JdbcFlowRepositoryService.lastNonDraftRevision(jdbcRepository, asterisk);
+    }
+
     protected Condition noAclDefaultFilter(String tenantId) {
         return buildTenantCondition(tenantId);
     }
@@ -290,6 +294,104 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
                     return Optional.of(fwe.toBuilder().source(source).build());
                 }
                 return Optional.of(FlowWithSource.of(flow, source));
+            });
+    }
+
+    @Override
+    public Optional<Flow> findByIdForExecution(String tenantId, String namespace, String id) {
+        return findByIdForExecution(tenantId, namespace, id, this.defaultFilter(tenantId));
+    }
+
+    @Override
+    public Optional<Flow> findByIdForExecutionWithoutAcl(String tenantId, String namespace, String id) {
+        return findByIdForExecution(tenantId, namespace, id, this.defaultFilterWithNoACL(tenantId));
+    }
+
+    private Optional<Flow> findByIdForExecution(String tenantId, String namespace, String id, Condition tenantCondition) {
+        return jdbcRepository
+            .getDslContextWrapper()
+            .transactionResult(configuration ->
+            {
+                DSLContext context = DSL.using(configuration);
+
+                var select = context
+                    .select(VALUE_FIELD, NAMESPACE_FIELD, TENANT_ID_FIELD)
+                    .from(fromLastNonDraftRevision(true))
+                    .where(tenantCondition)
+                    .and(NAMESPACE_FIELD.eq(namespace))
+                    .and(field("id", String.class).eq(id));
+
+                return this.jdbcRepository.fetchOne(select).map(it -> (Flow) it);
+            });
+    }
+
+    @Override
+    public Optional<FlowWithSource> findByIdWithSourceForExecution(String tenantId, String namespace, String id) {
+        return findByIdWithSourceForExecution(tenantId, namespace, id, this.defaultFilter(tenantId));
+    }
+
+    @Override
+    public Optional<FlowWithSource> findByIdWithSourceForExecutionWithoutAcl(String tenantId, String namespace, String id) {
+        return findByIdWithSourceForExecution(tenantId, namespace, id, this.defaultFilterWithNoACL(tenantId));
+    }
+
+    private Optional<FlowWithSource> findByIdWithSourceForExecution(String tenantId, String namespace, String id, Condition tenantCondition) {
+        return jdbcRepository
+            .getDslContextWrapper()
+            .transactionResult(configuration ->
+            {
+                DSLContext context = DSL.using(configuration);
+
+                var select = context
+                    .select(SOURCE_FIELD, VALUE_FIELD, NAMESPACE_FIELD, TENANT_ID_FIELD)
+                    .from(fromLastNonDraftRevision(true))
+                    .where(tenantCondition)
+                    .and(NAMESPACE_FIELD.eq(namespace))
+                    .and(field("id", String.class).eq(id));
+
+                Record4<String, Object, String, String> fetched = select.fetchAny();
+
+                if (fetched == null) {
+                    return Optional.empty();
+                }
+
+                Flow flow = (Flow) jdbcRepository.map(fetched);
+                String source = fetched.get(SOURCE_FIELD);
+                if (flow instanceof FlowWithException fwe) {
+                    return Optional.of(fwe.toBuilder().source(source).build());
+                }
+                return Optional.of(FlowWithSource.of(flow, source));
+            });
+    }
+
+    @Override
+    public List<FlowWithSource> findAllWithSourceForExecutionForAllTenants() {
+        return this.jdbcRepository
+            .getDslContextWrapper()
+            .transactionResult(configuration ->
+            {
+                var select = DSL
+                    .using(configuration)
+                    .select(
+                        VALUE_FIELD,
+                        field("source_code"),
+                        field("namespace"),
+                        TENANT_ID_FIELD
+                    )
+                    .from(fromLastNonDraftRevision(true))
+                    .where(this.defaultFilter());
+
+                // Same robust deserialization as findAllWithSourceForAllTenants(): we don't want
+                // a single broken plugin in the JSON to crash scheduler bootstrap.
+                return select.fetch().stream().map(record ->
+                {
+                    try {
+                        return FlowWithSource.of((Flow) jdbcRepository.map(record), record.get("source_code", String.class));
+                    } catch (Exception e) {
+                        log.error("Unable to load the following flow:\n{}", record.get("value", String.class), e);
+                        return null;
+                    }
+                }).filter(Objects::nonNull).toList();
             });
     }
 

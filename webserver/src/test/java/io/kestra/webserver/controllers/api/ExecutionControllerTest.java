@@ -165,6 +165,23 @@ class ExecutionControllerTest {
     }
 
     @Test
+    @LoadFlows(value = { "flows/valids/webhook-draft.yaml" })
+    void webhookOnDraftFlowReturnsNotFound() {
+        // A flow whose only revision is a draft is treated as if it does not exist for any
+        // execution start that does not pin an explicit revision (webhook entry, schedules, ...).
+        HttpClientResponseException exception = assertThrows(
+            HttpClientResponseException.class,
+            () -> client.toBlocking().retrieve(
+                GET("/api/v1/main/executions/webhook/" + TESTS_FLOW_NS + "/webhook-draft/webhook-draft-key"),
+                Execution.class
+            )
+        );
+
+        assertThat(exception.getStatus().getCode()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
+        assertThat(exception.getMessage()).contains("Flow not found");
+    }
+
+    @Test
     @LoadFlows(value = { "flows/valids/webhook-dynamic-key.yaml" })
     void webhookDynamicKey() {
         Execution execution = client.toBlocking().retrieve(

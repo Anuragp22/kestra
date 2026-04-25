@@ -526,7 +526,7 @@ public class ExecutionController {
         String key,
         String path,
         HttpRequest<String> request) throws IllegalVariableEvaluationException {
-        Optional<Flow> find = flowRepository.findById(tenantService.resolveTenant(), namespace, id);
+        Optional<Flow> find = flowRepository.findByIdForExecution(tenantService.resolveTenant(), namespace, id);
         return webhook(find, key, path, request);
     }
 
@@ -1728,9 +1728,14 @@ public class ExecutionController {
             );
         }
 
-        return submitBatchAction(executions, (execution, opId) ->
-        {
-            Flow flow = flowRepository.findById(execution.getTenantId(), execution.getNamespace(), execution.getFlowId(), Optional.empty()).orElseThrow();
+        return submitBatchAction(executions, (execution, opId) -> {
+            // When latestRevision is true the replay starts as a new execution against the
+            // latest non-draft revision; otherwise it stays bound to the execution's original
+            // revision (which may itself be a draft - the user explicitly ran it).
+            Flow flow = (latestRevision
+                ? flowRepository.findByIdForExecution(execution.getTenantId(), execution.getNamespace(), execution.getFlowId())
+                : flowRepository.findById(execution.getTenantId(), execution.getNamespace(), execution.getFlowId(), Optional.ofNullable(execution.getFlowRevision()))
+            ).orElseThrow();
             try {
                 innerReplayBatch(execution, flow, null, latestRevision ? flow.getRevision() : null, Optional.empty(), opId);
             } catch (QueueException e) {

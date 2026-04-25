@@ -651,7 +651,11 @@
     }
 
     function rowClasses(row: any) {
-        return row && row.row && row.row.disabled ? "disabled" : ""
+        if (!row || !row.row) return ""
+        const classes = []
+        if (row.row.disabled) classes.push("disabled")
+        if (row.row.draft) classes.push("draft")
+        return classes.join(" ")
     }
 
     function mappedChart(id: string, namespace: string) {

@@ -79,7 +79,7 @@ test.describe("Flow Page", () => {
             await page.getByRole("button", {name: "Actions"}).click()
             await expect(page.getByTestId("monaco-editor").getByText(flowId)).toBeVisible()
 
-            await page.getByRole("button", {name: "Save"}).click()
+            await page.getByRole("button", {name: "Save", exact: true}).click()
             await expect(page.getByRole("heading", {name: "Successfully saved"})).toBeVisible()
             await page.getByRole("link", {name: "Overview"}).click()
             await expect(page.locator("#app").getByText(flowId)).toBeVisible()

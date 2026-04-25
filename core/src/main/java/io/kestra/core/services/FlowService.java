@@ -762,7 +762,11 @@ public class FlowService {
      * @throws IllegalStateException if the requested flow is not executable.
      */
     public Flow getFlowIfExecutableOrThrow(final String tenant, final String namespace, final String id, final Optional<Integer> revision) {
-        Optional<Flow> optional = flowRepository.findByIdWithoutAcl(tenant, namespace, id, revision);
+        // When no revision is specified we resolve to the latest non-draft revision: drafts are
+        // only executable when the caller passes the revision explicitly.
+        Optional<Flow> optional = revision.isPresent()
+            ? flowRepository.findByIdWithoutAcl(tenant, namespace, id, revision)
+            : flowRepository.findByIdForExecutionWithoutAcl(tenant, namespace, id);
         if (optional.isEmpty()) {
             throw new NoSuchElementException("Requested Flow is not found.");
         }

@@ -37,21 +37,38 @@
         </KsDropdown>
     </div>
     <div data-onboarding-target="flow-save-button">
-        <KsButton
-            v-if="isNamespace || isAllowedEdit"
-            :icon="ContentSave"
-            @click="forwardEvent(showSaveAndExecute ? 'save-and-execute' : 'save', $event)"
-            :type="playgroundStore.enabled ? undefined : 'primary'"
-            :class="{
-                'el-button--playground': playgroundStore.enabled,
-                'onboarding-save-execute-button': showSaveAndExecute,
-            }"
-            :disabled="hasErrors || !canSave"
-            class="edit-flow-save-button"
-            :id="showSaveAndExecute ? 'execute-button' : undefined"
-        >
-            {{ $t(showSaveAndExecute ? "save_and_execute" : "save") }}
-        </KsButton>
+        <KsButtonGroup>
+            <KsButton
+                v-if="isNamespace || isAllowedEdit"
+                :icon="ContentSave"
+                @click="forwardEvent(showSaveAndExecute ? 'save-and-execute' : 'save', $event)"
+                :type="playgroundStore.enabled ? undefined : 'primary'"
+                :class="{
+                    'el-button--playground': playgroundStore.enabled,
+                    'onboarding-save-execute-button': showSaveAndExecute,
+                }"
+                :disabled="hasErrors || !canSave"
+                class="edit-flow-save-button"
+                :id="showSaveAndExecute ? 'execute-button' : undefined"
+            >
+                {{ $t(showSaveAndExecute ? "save_and_execute" : "save") }}
+            </KsButton>
+            <KsTooltip
+                v-if="(isNamespace || isAllowedEdit) && !showSaveAndExecute"
+                :content="$t('save_as_draft_help')"
+                placement="top"
+            >
+                <KsButton
+                    :icon="FileDocumentEditOutline"
+                    @click="forwardEvent('save-as-draft', $event)"
+                    :type="playgroundStore.enabled ? undefined : 'primary'"
+                    :disabled="hasErrors || !canSave"
+                    class="edit-flow-save-as-draft-button"
+                >
+                    {{ $t("save_as_draft") }}
+                </KsButton>
+            </KsTooltip>
+        </KsButtonGroup>
     </div>
 </template>
 <script setup lang="ts">
@@ -63,6 +80,7 @@
     import ContentCopy from "vue-material-design-icons/ContentCopy.vue"
     import ContentSave from "vue-material-design-icons/ContentSave.vue"
     import Download from "vue-material-design-icons/Download.vue"
+    import FileDocumentEditOutline from "vue-material-design-icons/FileDocumentEditOutline.vue";
     import {usePlaygroundStore} from "../../stores/playground"
 
     const playgroundStore = usePlaygroundStore()
@@ -85,6 +103,7 @@
         "copy",
         "save",
         "save-and-execute",
+        "save-as-draft",
         "export",
     ])
 

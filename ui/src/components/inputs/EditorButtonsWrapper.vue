@@ -22,6 +22,7 @@
             :showSaveAndExecute="showSaveAndExecute"
             @save="save"
             @save-and-execute="saveAndExecute"
+            @save-as-draft="saveAsDraft"
             @copy="
                 () =>
                     router.push({
@@ -134,6 +135,36 @@
             if (error?.status === 401) {
                 toast.error("401 Unauthorized", undefined, {duration: 2000})
                 return
+            }
+        }
+    }
+
+    async function saveAsDraft() {
+        try {
+            const isCreating = flowStore.isCreating;
+            const outcome = await flowStore.saveAsDraft();
+            if (isSuccessfulFlowSaveOutcome(outcome)) {
+                onboardingStore.recordSave();
+            }
+
+            if (isCreating && outcome === "redirect_to_update") {
+                await router.push({
+                    name: "flows/update",
+                    params: {
+                        id: flowStore.flow?.id,
+                        namespace: flowStore.flow?.namespace,
+                        tab: "edit",
+                        tenant: routeParams.value.tenant,
+                    },
+                    query: route.query,
+                });
+            }
+
+            onSaveAll?.();
+        } catch (error: any) {
+            if (error?.status === 401) {
+                toast.error("401 Unauthorized", undefined, {duration: 2000});
+                return;
             }
         }
     }
