@@ -23,10 +23,8 @@
                                 class="revision-option"
                             >
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <span>
-                                        {{ $t("revision") + " " + item.text }}
-                                        <Badge v-if="item.isDraft" :label="$t('draft')" />
-                                    </span>
+                                    <span> {{ $t("revision") + " " + item.text }}</span>
+                                    <Badge v-if="item.isDraft" :label="$t('draft')" class="ms-1" />
                                     <span class="revision-timestamp">{{ item.timestamp }}</span>
                                     <TrashCanOutline
                                         @mousedown.stop.prevent
@@ -64,10 +62,8 @@
                                 class="revision-option"
                             >
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <span>
-                                        {{ $t("revision") + " " + item.text }}
-                                        <Badge v-if="item.isDraft" :label="$t('draft')" />
-                                    </span>
+                                    <span> {{ $t("revision") + " " + item.text }}</span>
+                                    <Badge v-if="item.isDraft" :label="$t('draft')" class="ms-1" />
                                     <span class="revision-timestamp">{{ item.timestamp }}</span>
                                     <TrashCanOutline
                                         @mousedown.stop.prevent
