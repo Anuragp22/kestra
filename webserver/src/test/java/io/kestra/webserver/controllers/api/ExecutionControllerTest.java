@@ -201,6 +201,26 @@ class ExecutionControllerTest {
     }
 
     @Test
+    @LoadFlows(value = { "flows/valids/webhook-draft.yaml" })
+    void executingDraftOnlyFlowWithoutRevisionReturnsAFailedExecution() {
+        // A flow whose only revisions are drafts can't resolve to a published version, so when the
+        // user starts an execution without specifying a revision the request is accepted but a
+        // FAILED execution is emitted, with the explanation visible in the UI's execution log -
+        // instead of returning a bare 404 that surfaces no diagnostic.
+        Execution execution = client.toBlocking().retrieve(
+            HttpRequest.POST(
+                "/api/v1/main/executions/" + TESTS_FLOW_NS + "/webhook-draft",
+                null
+            ),
+            Execution.class
+        );
+
+        assertThat(execution).isNotNull();
+        assertThat(execution.getId()).isNotNull();
+        assertThat(execution.getState().getCurrent()).isEqualTo(io.kestra.core.models.flows.State.Type.FAILED);
+    }
+
+    @Test
     @LoadFlows(value = { "flows/valids/webhook-dynamic-key.yaml" })
     void webhookDynamicKey() {
         Execution execution = client.toBlocking().retrieve(

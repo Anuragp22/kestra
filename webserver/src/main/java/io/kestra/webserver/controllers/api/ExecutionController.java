@@ -660,8 +660,30 @@ public class ExecutionController {
         @Parameter(description = "Schedule the flow on a specific date") @QueryValue Optional<ZonedDateTime> scheduleDate,
         @Parameter(description = "Set a list of breakpoints at specific tasks 'id.value', separated by a coma.") @QueryValue Optional<String> breakpoints,
         @Parameter(description = "Specific execution kind") @QueryValue Optional<ExecutionKind> kind) {
-        Flow flow = flowService.getFlowIfExecutableOrThrow(tenantService.resolveTenant(), namespace, id, revision);
+        final String tenantId = tenantService.resolveTenant();
         List<Label> parsedLabels = parseLabels(labels);
+        final Flow flow;
+        try {
+            flow = flowService.getFlowIfExecutableOrThrow(tenantId, namespace, id, revision);
+        } catch (NoSuchElementException e) {
+            // No non-draft revision was found. If the flow exists but only has draft revisions,
+            // we accept the request and emit a FAILED execution explaining why instead of a bare
+            // 404, so the user sees the failure in the UI executions list.
+            if (revision.isEmpty()) {
+                Optional<Flow> latestAny = flowRepository.findByIdWithoutAcl(tenantId, namespace, id, Optional.empty());
+                if (latestAny.isPresent() && latestAny.get().isDraft()) {
+                    Flow draftFlow = latestAny.get();
+                    return Mono.just(emitFailedExecution(
+                        draftFlow,
+                        parsedLabels,
+                        scheduleDate,
+                        kind,
+                        "Flow execution failed: flow only has draft revisions. Save it as a published revision before executing it without a revision."
+                    ));
+                }
+            }
+            throw e;
+        }
 
         // Drafts can be saved with constraint violations. When the user explicitly executes one
         // (by passing the revision) the request is accepted but the execution is created already
@@ -669,20 +691,13 @@ public class ExecutionController {
         // and visible in the UI's execution log.
         Optional<ConstraintViolationException> violations = flowService.validateForExecution(flow);
         if (violations.isPresent()) {
-            Execution failedExecution = Execution.newExecution(flow, null, parsedLabels, scheduleDate)
-                .toBuilder()
-                .kind(kind.orElse(null))
-                .build()
-                .withState(State.Type.FAILED);
-            runContextFactory.of(flow, failedExecution).logger()
-                .error("Flow execution failed: flow definition is invalid. {}", violations.get().getMessage());
-            try {
-                executionQueue.emit(failedExecution);
-                eventPublisher.publishEvent(CrudEvent.create(failedExecution));
-            } catch (QueueException e) {
-                return Mono.error(e);
-            }
-            return Mono.just(ExecutionResponse.fromExecution(failedExecution, executionUrl(failedExecution)));
+            return Mono.just(emitFailedExecution(
+                flow,
+                parsedLabels,
+                scheduleDate,
+                kind,
+                "Flow execution failed: flow definition is invalid. " + violations.get().getMessage()
+            ));
         }
 
         final Execution current = Execution.newExecution(flow, null, parsedLabels, scheduleDate).toBuilder()
@@ -762,6 +777,34 @@ public class ExecutionController {
                     return Mono.error(e);
                 }
             });
+    }
+
+    /**
+     * Build a FAILED execution from the given flow, persist a single error log line through the
+     * run context appender (so the message lands in the UI's execution log) and emit it to the
+     * execution queue. Used when the request is accepted but the flow cannot be executed - e.g.,
+     * the flow only has draft revisions, or its definition has constraint violations.
+     */
+    private ExecutionResponse emitFailedExecution(
+        Flow flow,
+        List<Label> parsedLabels,
+        Optional<ZonedDateTime> scheduleDate,
+        Optional<ExecutionKind> kind,
+        String errorMessage
+    ) {
+        Execution failedExecution = Execution.newExecution(flow, null, parsedLabels, scheduleDate)
+            .toBuilder()
+            .kind(kind.orElse(null))
+            .build()
+            .withState(State.Type.FAILED);
+        runContextFactory.of(flow, failedExecution).logger().error(errorMessage);
+        try {
+            executionQueue.emit(failedExecution);
+            eventPublisher.publishEvent(CrudEvent.create(failedExecution));
+        } catch (QueueException e) {
+            throw new RuntimeException(e);
+        }
+        return ExecutionResponse.fromExecution(failedExecution, executionUrl(failedExecution));
     }
 
     private URI executionUrl(Execution execution) {
