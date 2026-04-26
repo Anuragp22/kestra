@@ -665,7 +665,8 @@ public class ExecutionController {
 
         // Drafts can be saved with constraint violations. When the user explicitly executes one
         // (by passing the revision) the request is accepted but the execution is created already
-        // FAILED, with the validation error logged so it surfaces in the UI's execution log.
+        // FAILED, with the validation error logged through the run context so it is persisted
+        // and visible in the UI's execution log.
         Optional<ConstraintViolationException> violations = flowService.validateForExecution(flow);
         if (violations.isPresent()) {
             Execution failedExecution = Execution.newExecution(flow, null, parsedLabels, scheduleDate)
@@ -673,8 +674,8 @@ public class ExecutionController {
                 .kind(kind.orElse(null))
                 .build()
                 .withState(State.Type.FAILED);
-            Logs.logExecution(failedExecution, log, Level.ERROR,
-                "Flow execution failed: flow definition is invalid. {}", violations.get().getMessage());
+            runContextFactory.of(flow, failedExecution).logger()
+                .error("Flow execution failed: flow definition is invalid. {}", violations.get().getMessage());
             try {
                 executionQueue.emit(failedExecution);
                 eventPublisher.publishEvent(CrudEvent.create(failedExecution));
