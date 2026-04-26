@@ -24,7 +24,9 @@
                             >
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span> {{ $t("revision") + " " + item.text }}</span>
-                                    <el-tag size="small" type="warning" v-if="item.isDraft" class="ms-1">{{ $t('draft') }}</el-tag>
+                                    <el-tag size="small" type="warning" v-if="item.isDraft" class="ms-1">
+                                        {{ $t('draft') }}
+                                    </el-tag>
                                     <span class="revision-timestamp">{{ item.timestamp }}</span>
                                     <TrashCanOutline
                                         @mousedown.stop.prevent
