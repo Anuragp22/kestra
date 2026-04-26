@@ -100,7 +100,7 @@
                             >
                                 {{ FILTERS.invisibleSpace(scope.row.id) }}
                             </router-link>
-                            <Badge v-if="scope.row.draft" :label="$t('draft')" class="me-1" />
+                            <el-tag size="small" type="warning" v-if="scope.row.draft" class="me-1">{{ $t('draft') }}</el-tag>
                                         <MarkdownTooltip
                                 :id="scope.row.namespace +
                                     '-' +

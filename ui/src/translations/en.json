@@ -45,7 +45,6 @@
     "success": "Success",
     "save": "Save",
     "save_as_draft": "Save as draft",
-    "save_as_draft_help": "Save without publishing. Drafts are not picked up by webhooks, schedules or subflows.",
     "draft": "Draft",
     "draft_flow_warning": "This flow revision is a draft. The execution will run against this draft revision and may fail immediately if the flow definition is invalid.",
     "save task": "Save Task",

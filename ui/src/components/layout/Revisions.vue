@@ -24,7 +24,7 @@
                             >
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span> {{ $t("revision") + " " + item.text }}</span>
-                                    <Badge v-if="item.isDraft" :label="$t('draft')" class="ms-1" />
+                                    <el-tag size="small" type="warning" v-if="item.isDraft" class="ms-1">{{ $t('draft') }}</el-tag>
                                     <span class="revision-timestamp">{{ item.timestamp }}</span>
                                     <TrashCanOutline
                                         @mousedown.stop.prevent

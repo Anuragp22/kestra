@@ -149,7 +149,7 @@ export const useFlowStore = defineStore("flow", () => {
     async function saveAll(draft: boolean = false): Promise<FlowSaveOutcome> {
         draftIntent.value = draft;
 
-        if ((!haveChange.value && !isCreating.value) || flowErrors.value?.length) {
+        if (!haveChange.value && !isCreating.value) {
             return (!haveChange.value && !isCreating.value) ? "no_op" : "blocked"
         }
 
@@ -452,7 +452,6 @@ export const useFlowStore = defineStore("flow", () => {
         overallTotal.value = 1
 
         return response.data
-
     }
     function loadTask(options: { namespace: string, id: string, taskId: string, revision?: string }) {
         return axios.get(
@@ -761,7 +760,6 @@ function deleteFlowAndDependencies() {
                 }
 
                 flowValidation.value = validResults
-
                 return validResults
             })
     }
