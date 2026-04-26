@@ -131,7 +131,9 @@ public class FlowService {
         // Do not perform a strict parsing validation to ignore unknown
         // properties that might be injecting through default values.
         // Drafts are allowed to be saved invalid - they will fail at execution time instead.
-        if (!parsed.isDraft()) {
+        // Use flow.isDraft() (set from the API draft flag) rather than parsed.isDraft(),
+        // since the draft flag is not part of the YAML source.
+        if (!flow.isDraft()) {
             modelValidator.validate(pluginDefaultService.injectAllDefaults(parsed, false));
         }
 
@@ -166,7 +168,9 @@ public class FlowService {
         // Do not perform a strict parsing validation to ignore unknown
         // properties that might be injecting through default values.
         // Drafts are allowed to be saved invalid - they will fail at execution time instead.
-        if (!parsed.isDraft()) {
+        // Use flow.isDraft() (set from the API draft flag) rather than parsed.isDraft(),
+        // since the draft flag is not part of the YAML source.
+        if (!flow.isDraft()) {
             modelValidator.validate(pluginDefaultService.injectAllDefaults(parsed, false));
         }
 

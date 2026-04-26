@@ -894,7 +894,10 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
         // Check Flow with defaults
         FlowWithSource flowWithDefault = pluginDefaultService.injectAllDefaults(flow, false);
         // Drafts are allowed to be saved invalid - they will fail at execution time instead.
-        if (!flowWithDefault.isDraft()) {
+        // Read the draft flag from the original GenericFlow (set from the API draft flag) rather
+        // than from flowWithDefault, since `injectAllDefaults` re-parses the YAML source which
+        // does not carry the draft field.
+        if (!flow.isDraft()) {
             modelValidator.validate(flowWithDefault);
         }
 
