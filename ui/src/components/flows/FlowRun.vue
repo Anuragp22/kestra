@@ -236,6 +236,7 @@
                                 newTab: this.newTab,
                                 id: this.flow.id,
                                 namespace: this.flow.namespace,
+                                revision: this.flow.revision,
                                 labels: [...new Set(
                                     this.executionLabels
                                         .filter(label => label.key && label.value)
