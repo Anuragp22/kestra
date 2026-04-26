@@ -123,7 +123,7 @@ class TriggerSchedulerTest {
         SchedulerClock.offset(Duration.ofMinutes(15));
         scheduler.onSchedule(SchedulerClock.getClock(), SchedulerClock.now().toInstant(), NODES_ASSIGNMENTS);
 
-        assertThat(triggerExecutionPublisher.executions()).hasSize(1);
+        assertThat(triggerExecutionPublisher.executions().size()).isEqualTo(1);
         assertThat(triggerExecutionPublisher.executions().getFirst().getState().getCurrent())
             .isEqualTo(State.Type.FAILED);
     }
