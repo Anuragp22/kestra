@@ -100,7 +100,8 @@
                             >
                                 {{ FILTERS.invisibleSpace(scope.row.id) }}
                             </router-link>
-                            <MarkdownTooltip
+                            <Badge v-if="scope.row.draft" :label="$t('draft')" class="me-1" />
+                                        <MarkdownTooltip
                                 :id="scope.row.namespace +
                                     '-' +
                                     scope.row.id
@@ -282,6 +283,7 @@
     import FlowRun from "./FlowRun.vue"
     import {KsFilter as KSFilter} from "@kestra-io/design-system"
     import MarkdownTooltip from "../layout/MarkdownTooltip.vue"
+    import Badge from "../global/Badge.vue";
     import TimeSeries from "../dashboard/sections/TimeSeries.vue"
     import TopNavBar from "../../components/layout/TopNavBar.vue"
 

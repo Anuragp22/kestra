@@ -23,7 +23,10 @@
                                 class="revision-option"
                             >
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <span> {{ $t("revision") + " " + item.text }}</span>
+                                    <span>
+                                        {{ $t("revision") + " " + item.text }}
+                                        <Badge v-if="item.isDraft" :label="$t('draft')" />
+                                    </span>
                                     <span class="revision-timestamp">{{ item.timestamp }}</span>
                                     <TrashCanOutline
                                         @mousedown.stop.prevent
@@ -61,7 +64,10 @@
                                 class="revision-option"
                             >
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <span> {{ $t("revision") + " " + item.text }}</span>
+                                    <span>
+                                        {{ $t("revision") + " " + item.text }}
+                                        <Badge v-if="item.isDraft" :label="$t('draft')" />
+                                    </span>
                                     <span class="revision-timestamp">{{ item.timestamp }}</span>
                                     <TrashCanOutline
                                         @mousedown.stop.prevent
@@ -118,6 +124,7 @@
     import Restore from "vue-material-design-icons/Restore.vue"
     import TrashCanOutline from "vue-material-design-icons/TrashCanOutline.vue"
     import Editor from "../../components/inputs/Editor.vue"
+    import Badge from "../global/Badge.vue";
     import moment from "moment"
 
     import {useToast} from "../../utils/toast"
@@ -129,6 +136,7 @@
         revision: number;
         updated?: string;  // ISO datetime string
         source?: string;
+        draft?: boolean;
     }
 
     const {t} = useI18n()
@@ -246,13 +254,14 @@
     function options(excludeRevisionIndex: number | undefined) {
         return sortedRevisions.value
             .filter((_, index) => index !== excludeRevisionIndex)
-            .map(({revision, updated}) => {
+            .map(({revision, updated, draft}) => {
                 const isCurrent = currentRevisionWithSource.value.revision === revision
                 return {
                     value: revisionIndex(revision.toString()),
                     revision: revision,
                     timestamp: formatTimestamp(updated),
                     isCurrent: isCurrent,
+                    isDraft: draft === true,
                     text: formatRevisionText(revision),
                 }
             })
