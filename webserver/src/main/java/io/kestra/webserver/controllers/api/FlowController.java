@@ -267,8 +267,9 @@ public class FlowController {
     @Post(consumes = MediaType.APPLICATION_YAML)
     @Operation(tags = { "Flows" }, summary = "Create a flow from yaml source")
     public HttpResponse<FlowWithSource> createFlow(
-        @RequestBody(description = "The flow source code") @Body String flow) throws ConstraintViolationException {
-        return HttpResponse.ok(doCreate(parseFlowSource(flow)));
+        @RequestBody(description = "The flow source code") @Body String flow,
+        @Parameter(description = "Save the flow as a draft. Drafts are not picked up by webhooks, schedules or subflows and are not validated for constraint violations.") @QueryValue(defaultValue = "false") boolean draft) throws ConstraintViolationException {
+        return HttpResponse.ok(doCreate(parseFlowSource(flow).toBuilder().draft(draft).build()));
     }
 
     @SneakyThrows
@@ -423,7 +424,8 @@ public class FlowController {
     public HttpResponse<FlowWithSource> updateFlow(
         @Parameter(description = "The flow namespace") @PathVariable String namespace,
         @Parameter(description = "The flow id") @PathVariable String id,
-        @RequestBody(description = "The flow source code") @Body String source) throws ConstraintViolationException, FlowProcessingException, QueueException {
+        @RequestBody(description = "The flow source code") @Body String source,
+        @Parameter(description = "Save the flow as a draft. Drafts are not picked up by webhooks, schedules or subflows and are not validated for constraint violations.") @QueryValue(defaultValue = "false") boolean draft) throws ConstraintViolationException, FlowProcessingException, QueueException {
         final String tenantId = tenantService.resolveTenant();
         Optional<Flow> existingFlow = flowRepository.findById(tenantId, namespace, id);
 
@@ -431,8 +433,10 @@ public class FlowController {
             return HttpResponse.status(HttpStatus.NOT_FOUND);
         }
 
-        // Parse source as RawFlow.
-        GenericFlow genericFlow = GenericFlow.fromYaml(tenantId, source);
+        // Parse source as RawFlow. Draft is metadata about the revision, not part of the YAML
+        // the user wrote (similar to how `revision` is excluded), so it comes from the request
+        // parameter rather than from the YAML body.
+        GenericFlow genericFlow = GenericFlow.fromYaml(tenantId, source).toBuilder().draft(draft).build();
 
         try {
             return HttpResponse.ok(doUpdateFlow(genericFlow, existingFlow.get()));
