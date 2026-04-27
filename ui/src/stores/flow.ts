@@ -252,6 +252,20 @@ export const useFlowStore = defineStore("flow", () => {
 
     const toast = makeToast(t)
 
+    // Local toast for the post-save success: distinguishes "saved as draft" from a regular
+    // save so the user can tell the two modes apart, without leaking that distinction into
+    // the global toast utility.
+    function notifySaved(name: string) {
+        if (draftIntent.value) {
+            toast.success(
+                t("saved as draft done", {name}),
+                t("saved as draft")
+            );
+        } else {
+            toast.saved(name);
+        }
+    }
+
     async function saveWithoutRevisionGuard(): Promise<FlowSaveOutcome> {
         const flowSource = flowYaml.value ?? ""
 
@@ -295,7 +309,7 @@ export const useFlowStore = defineStore("flow", () => {
         if (isCreating.value && !overrideFlow) {
             try {
                 const response = await createFlow({flow: flowSource ?? ""})
-                toast.saved(response.id, undefined, {draft: draftIntent.value})
+                notifySaved(response.id)
                 isCreating.value = false
             } catch (error: any) {
                 if (error?.response?.status === 422 && error?.response?.data?.message?.includes("Flow id already exists")) {
@@ -306,7 +320,7 @@ export const useFlowStore = defineStore("flow", () => {
                         showCancelButton: true,
                     }).then(async () => {
                         const response = await saveFlow({flow: flowSource})
-                        toast.saved(response.id, undefined, {draft: draftIntent.value})
+                        notifySaved(response.id)
                         isCreating.value = false
                         return true
                     })
@@ -327,7 +341,7 @@ export const useFlowStore = defineStore("flow", () => {
         } else {
             await saveFlow({flow: flowSource})
                 .then((response: Flow) => {
-                    toast.saved(response.id, undefined, {draft: draftIntent.value})
+                    notifySaved(response.id)
                 })
         }
 

@@ -38,15 +38,13 @@ export const makeToast = (t: (t:string, options?: Record<string, string>) => str
                     // User cancelled
                 })
         },
-        saved: function(name:string, title?:string, options?: Record<string, any> & {draft?: boolean}) {
+        saved: function(name:string, title?:string, options?: Record<string, any>) {
             KsNotification.closeAll()
             const message = options?.multiple
                 ? t("multiple saved done", {name})
-            : options?.draft
-                ? t("saved as draft done", {name: name})
-                : t("saved done", {name: name})
+            : t("saved done", {name: name})
             KsNotification({
-                    title: title || (options?.draft ? t("saved as draft") : t("saved")),
+                    title: title || t("saved"),
                     message: wrapMessage(message),
                     position: "bottom-right",
                     type: "success",
