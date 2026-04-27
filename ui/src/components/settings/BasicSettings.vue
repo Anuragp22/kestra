@@ -74,6 +74,13 @@
                         </KsSelect>
                     </Column>
 
+                    <Column :label="$t('settings.blocks.configuration.fields.save_default_action')">
+                        <el-select :modelValue="pendingSettings.saveDefaultAction" @update:model-value="onSaveDefaultActionChange">
+                            <el-option :label="$t('save')" :value="saveDefaultActions.SAVE" />
+                            <el-option :label="$t('save_as_draft')" :value="saveDefaultActions.SAVE_AS_DRAFT" />
+                        </el-select>
+                    </Column>
+
                     <Column :label="$t('settings.blocks.configuration.fields.execute_default_tab')">
                         <KsSelect :modelValue="pendingSettings.executeDefaultTab" @update:model-value="onExecuteDefaultTabChange">
                             <KsOption
@@ -289,7 +296,7 @@
 <script setup>
     import Reload from "vue-material-design-icons/Reload.vue"
     import Download from "vue-material-design-icons/Download.vue"
-    import {executeFlowBehaviours} from "../../utils/constants"
+    import {executeFlowBehaviours, saveDefaultActions} from "../../utils/constants"
 </script>
 
 <script>
@@ -347,6 +354,7 @@
                     flowDefaultTab: "overview",
                     editorPlayground: true,
                     autoRefreshInterval: 10,
+                    saveDefaultAction: saveDefaultActions.SAVE,
                 },
                 defaultPreferences: {
                     theme: "syncWithSystem",
@@ -384,11 +392,13 @@
                     flowDefaultTab: undefined,
                     editorPlayground: undefined,
                     logsFontSize: undefined,
+                    saveDefaultAction: undefined,
                 },
                 settingsKeyMapping: {
                     dateFormat: storageKeys.DATE_FORMAT_STORAGE_KEY,
                     timezone: storageKeys.TIMEZONE_STORAGE_KEY,
                     executeFlowBehaviour: storageKeys.EXECUTE_FLOW_BEHAVIOUR,
+                    saveDefaultAction: storageKeys.SAVE_DEFAULT_ACTION,
                 },
                 zonesWithOffset: this.$moment.tz.names().map((zone) => {
                     const timezoneMoment = this.$moment.tz(zone)
@@ -417,6 +427,7 @@
             this.pendingSettings.editorFontSize = parseInt(localStorage.getItem("editorFontSize")) || 12
             this.pendingSettings.editorFontFamily = localStorage.getItem("editorFontFamily") || "'Source Code Pro', monospace"
             this.pendingSettings.executeFlowBehaviour = localStorage.getItem("executeFlowBehaviour") || "same tab"
+            this.pendingSettings.saveDefaultAction = localStorage.getItem(storageKeys.SAVE_DEFAULT_ACTION) || saveDefaultActions.SAVE;
             this.pendingSettings.executeDefaultTab = localStorage.getItem("executeDefaultTab") || "gantt"
             this.pendingSettings.flowDefaultTab = localStorage.getItem("flowDefaultTab") || "overview"
             this.pendingSettings.editorPlayground = localStorage.getItem("editorPlayground") !== "false"
@@ -609,6 +620,10 @@
             },
             onExecuteFlowBehaviourChange(value) {
                 this.pendingSettings.executeFlowBehaviour = value
+                this.checkForChanges()
+            },
+            onSaveDefaultActionChange(value) {
+                this.pendingSettings.saveDefaultAction = value
                 this.checkForChanges()
             },
             onExecuteDefaultTabChange(value){
