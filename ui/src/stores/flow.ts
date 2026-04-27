@@ -295,7 +295,7 @@ export const useFlowStore = defineStore("flow", () => {
         if (isCreating.value && !overrideFlow) {
             try {
                 const response = await createFlow({flow: flowSource ?? ""})
-                toast.saved(response.id)
+                toast.saved(response.id, undefined, {draft: draftIntent.value})
                 isCreating.value = false
             } catch (error: any) {
                 if (error?.response?.status === 422 && error?.response?.data?.message?.includes("Flow id already exists")) {
@@ -306,7 +306,7 @@ export const useFlowStore = defineStore("flow", () => {
                         showCancelButton: true,
                     }).then(async () => {
                         const response = await saveFlow({flow: flowSource})
-                        toast.saved(response.id)
+                        toast.saved(response.id, undefined, {draft: draftIntent.value})
                         isCreating.value = false
                         return true
                     })
@@ -327,7 +327,7 @@ export const useFlowStore = defineStore("flow", () => {
         } else {
             await saveFlow({flow: flowSource})
                 .then((response: Flow) => {
-                    toast.saved(response.id)
+                    toast.saved(response.id, undefined, {draft: draftIntent.value})
                 })
         }
 
