@@ -112,7 +112,7 @@
             // Save the isCreating before saving.
             // saveAll can change its value.
             const isCreating = flowStore.isCreating
-            const outcome = await flowStore.saveAll()
+            const outcome = await flowStore.saveAll(false)
             if (isSuccessfulFlowSaveOutcome(outcome)) {
                 onboardingStore.recordSave()
             }
@@ -172,7 +172,8 @@
     async function saveAndExecute() {
         try {
             const isCreating = flowStore.isCreating
-            const outcome = await flowStore.saveAll()
+            // Executing implies publishing: save without draft flag.
+            const outcome = await flowStore.saveAll(false)
             const hasInputs = Array.isArray(flowStore.flowParsed?.inputs) && flowStore.flowParsed.inputs.length > 0
             if (isSuccessfulFlowSaveOutcome(outcome)) {
                 onboardingStore.recordSave()

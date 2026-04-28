@@ -146,8 +146,10 @@ export const useFlowStore = defineStore("flow", () => {
     // into the YAML source - mirroring how `revision` works.
     const draftIntent = ref<boolean>(false);
 
-    async function saveAll(draft: boolean = false): Promise<FlowSaveOutcome> {
-        draftIntent.value = draft;
+    async function saveAll(draft?: boolean): Promise<FlowSaveOutcome> {
+        // When not specified, preserve the current flow's draft status so that
+        // Ctrl+S on a draft flow keeps it a draft rather than silently publishing it.
+        draftIntent.value = draft ?? flow.value?.draft ?? false;
 
         if (!haveChange.value && !isCreating.value) {
             return (!haveChange.value && !isCreating.value) ? "no_op" : "blocked"
@@ -647,6 +649,8 @@ function deleteFlowAndDependencies() {
                 flowVar.source = options.flow
                 // prevent losing revision when loading graph from source
                 flowVar.revision = flow.value?.revision
+                // draft is server-side metadata not present in YAML - preserve it across graph reloads
+                flowVar.draft = flow.value?.draft;
                 flow.value = flowVar
 
                 return response

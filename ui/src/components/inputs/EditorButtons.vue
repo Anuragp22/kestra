@@ -165,10 +165,9 @@
     }
 
     function onDropdownCommand(command: SaveAction) {
-        // Selecting a menu item only switches the default - it does NOT trigger the action.
-        // The user has to click the main button again to actually save.
+        // Selecting a menu item only switches the default for the current session - it does NOT
+        // trigger the action. The persistent default is managed from the settings page.
         currentAction.value = command;
-        localStorage.setItem(storageKeys.SAVE_DEFAULT_ACTION, command);
     }
 </script>
 

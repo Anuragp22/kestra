@@ -945,7 +945,11 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
 
         eventPublisher.publishEvent(new CrudEvent<>(flow, nullOrExisting, crudEventType));
 
-        return flowWithSource.toBuilder().revision(revision).build();
+        // draft is not part of the YAML source so injectVersionDefaults loses it; restore from the original flow.
+        return flowWithSource.toBuilder()
+            .revision(revision)
+            .draft(flow.isDraft())
+            .build();
     }
 
     @SneakyThrows
