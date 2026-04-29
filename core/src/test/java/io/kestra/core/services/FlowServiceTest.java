@@ -745,6 +745,73 @@ class FlowServiceTest {
     }
 
     @Test
+    void shouldAllowSavingDraftWithUnrecognizedTaskProperty() throws FlowProcessingException, QueueException {
+        // Regression: creating a draft whose task has an unrecognized property used to return 422
+        // because FlowService applied strict parsing regardless of the draft flag.
+        String flowId = IdUtils.create();
+        String source = """
+            id: %s
+            namespace: %s
+            draft: true
+            tasks:
+              - id: log
+                type: io.kestra.plugin.core.log.Log
+                message: hello
+                unknownProp: someValue
+            """.formatted(flowId, TEST_NAMESPACE);
+
+        FlowWithSource saved = flowService.create(GenericFlow.fromYaml(TenantService.MAIN_TENANT, source));
+
+        try {
+            assertThat(saved).isNotNull();
+            assertThat(saved.isDraft()).isTrue();
+        } finally {
+            flowRepository.findByIdWithSource(saved.getTenantId(), saved.getNamespace(), saved.getId())
+                .ifPresent(f -> flowRepository.delete(f));
+        }
+    }
+
+    @Test
+    void shouldAllowUpdatingDraftWithUnrecognizedTaskProperty() throws FlowProcessingException, QueueException {
+        // Same as above but for the update path.
+        String flowId = IdUtils.create();
+        String validSource = """
+            id: %s
+            namespace: %s
+            tasks:
+              - id: log
+                type: io.kestra.plugin.core.log.Log
+                message: hello
+            """.formatted(flowId, TEST_NAMESPACE);
+
+        FlowWithSource created = flowService.create(GenericFlow.fromYaml(TenantService.MAIN_TENANT, validSource));
+
+        try {
+            String draftSource = """
+                id: %s
+                namespace: %s
+                draft: true
+                tasks:
+                  - id: log
+                    type: io.kestra.plugin.core.log.Log
+                    message: hello
+                    unknownProp: someValue
+                """.formatted(flowId, TEST_NAMESPACE);
+
+            FlowWithSource updated = flowService.update(
+                GenericFlow.fromYaml(TenantService.MAIN_TENANT, draftSource),
+                created
+            );
+
+            assertThat(updated).isNotNull();
+            assertThat(updated.isDraft()).isTrue();
+        } finally {
+            flowRepository.findByIdWithSource(created.getTenantId(), created.getNamespace(), created.getId())
+                .ifPresent(f -> flowRepository.delete(f));
+        }
+    }
+
+    @Test
     void shouldReportConstraintViolationsWhenValidatingInvalidDraftForExecution() throws FlowProcessingException, QueueException {
         // After an invalid draft is saved, validateForExecution must surface the violations so
         // the caller (ExecutionController) can mark the execution as FAILED rather than running

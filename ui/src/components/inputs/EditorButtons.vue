@@ -70,8 +70,10 @@
             v-else-if="isNamespace || isAllowedEdit"
             splitButton
             :type="playgroundStore.enabled ? undefined : 'primary'"
-            :class="{'el-button--playground': playgroundStore.enabled}"
-            :disabled="hasErrors || !canSave"
+            :class="{
+                'el-button--playground': playgroundStore.enabled,
+                'is-save-disabled': isMainButtonDisabled
+            }"
             class="edit-flow-save-button"
             @click="onMainSaveClick($event)"
             @command="onDropdownCommand"
@@ -137,6 +139,14 @@
         return props.haveChange || props.isCreating
     });
 
+    // Drafts can be saved even when the flow has errors; only regular Save requires a valid flow.
+    const isMainButtonDisabled = computed(() => {
+        if (currentAction.value === saveDefaultActions.SAVE_AS_DRAFT) {
+            return !canSave.value;
+        }
+        return hasErrors.value || !canSave.value;
+    });
+
     type SaveAction = typeof saveDefaultActions[keyof typeof saveDefaultActions];
 
     const saveActionOptions: Array<{
@@ -161,6 +171,7 @@
     );
 
     function onMainSaveClick(event: MouseEvent) {
+        if (isMainButtonDisabled.value) return;
         forwardEvent(currentActionMeta.value.event, event);
     }
 
@@ -172,6 +183,14 @@
 </script>
 
 <style scoped lang="scss">
+    .is-save-disabled {
+        :deep(.el-button:not(.el-dropdown__caret-button)) {
+            opacity: var(--el-disabled-opacity, 0.5);
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+    }
+
     .onboarding-save-execute-button {
         position: relative;
         z-index: 1;

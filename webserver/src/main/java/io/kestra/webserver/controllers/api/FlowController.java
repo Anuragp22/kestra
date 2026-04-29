@@ -436,7 +436,22 @@ public class FlowController {
         // Parse source as RawFlow. Draft is metadata about the revision, not part of the YAML
         // the user wrote (similar to how `revision` is excluded), so it comes from the request
         // parameter rather than from the YAML body.
-        GenericFlow genericFlow = GenericFlow.fromYaml(tenantId, source).toBuilder().draft(draft).build();
+        // For draft saves, tolerate unparseable YAML by falling back to the path-variable identity.
+        GenericFlow genericFlow;
+        try {
+            genericFlow = GenericFlow.fromYaml(tenantId, source).toBuilder().draft(draft).build();
+        } catch (ConstraintViolationException e) {
+            if (!draft) {
+                throw e;
+            }
+            genericFlow = GenericFlow.builder()
+                .tenantId(tenantId)
+                .namespace(namespace)
+                .id(id)
+                .source(source)
+                .draft(true)
+                .build();
+        }
 
         try {
             return HttpResponse.ok(doUpdateFlow(genericFlow, existingFlow.get()));

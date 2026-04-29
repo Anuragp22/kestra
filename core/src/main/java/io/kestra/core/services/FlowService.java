@@ -124,16 +124,13 @@ public class FlowService {
             throw new IllegalArgumentException("Cannot create flow with null or blank source");
         }
 
-        // Inject plugin default versions, and perform strict parsing validation (i.e., checking unknown and duplicated properties).
-        FlowWithSource parsed = pluginDefaultService.parseFlowWithVersionDefaults(flow.getTenantId(), flow.getSource(), true);
-
-        // Validate Flow with defaults values
-        // Do not perform a strict parsing validation to ignore unknown
-        // properties that might be injecting through default values.
-        // Drafts are allowed to be saved invalid - they will fail at execution time instead.
-        // Use flow.isDraft() (set from the API draft flag) rather than parsed.isDraft(),
+        // Validate Flow with defaults values.
+        // Strict parsing (unknown / duplicate properties) and constraint validation are both skipped
+        // for drafts: they are allowed to be saved invalid and will fail at execution time instead.
+        // Use flow.isDraft() (set from the API draft flag) rather than the parsed value,
         // since the draft flag is not part of the YAML source.
         if (!flow.isDraft()) {
+            FlowWithSource parsed = pluginDefaultService.parseFlowWithVersionDefaults(flow.getTenantId(), flow.getSource(), true);
             modelValidator.validate(pluginDefaultService.injectAllDefaults(parsed, false));
         }
 
@@ -161,16 +158,13 @@ public class FlowService {
         }
         Objects.requireNonNull(previous, "Cannot update a flow with null previous");
 
-        // Inject plugin default versions, and perform strict parsing validation (i.e., checking unknown and duplicated properties).
-        FlowWithSource parsed = pluginDefaultService.parseFlowWithVersionDefaults(flow.getTenantId(), flow.getSource(), true);
-
-        // Validate Flow with defaults values
-        // Do not perform a strict parsing validation to ignore unknown
-        // properties that might be injecting through default values.
-        // Drafts are allowed to be saved invalid - they will fail at execution time instead.
-        // Use flow.isDraft() (set from the API draft flag) rather than parsed.isDraft(),
+        // Validate Flow with defaults values.
+        // Strict parsing (unknown / duplicate properties) and constraint validation are both skipped
+        // for drafts: they are allowed to be saved invalid and will fail at execution time instead.
+        // Use flow.isDraft() (set from the API draft flag) rather than the parsed value,
         // since the draft flag is not part of the YAML source.
         if (!flow.isDraft()) {
+            FlowWithSource parsed = pluginDefaultService.parseFlowWithVersionDefaults(flow.getTenantId(), flow.getSource(), true);
             modelValidator.validate(pluginDefaultService.injectAllDefaults(parsed, false));
         }
 

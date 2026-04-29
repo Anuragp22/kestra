@@ -271,7 +271,9 @@ export const useFlowStore = defineStore("flow", () => {
     async function saveWithoutRevisionGuard(): Promise<FlowSaveOutcome> {
         const flowSource = flowYaml.value ?? ""
 
-        if (flowParsed.value === undefined) {
+        // Draft saves intentionally bypass YAML parse validation: the backend is the
+        // authoritative validator and drafts are allowed to have invalid content.
+        if (flowParsed.value === undefined && !draftIntent.value) {
             coreStore.message = {
                 variant: "error",
                 title: t("invalid flow"),
@@ -317,7 +319,7 @@ export const useFlowStore = defineStore("flow", () => {
                 if (error?.response?.status === 422 && error?.response?.data?.message?.includes("Flow id already exists")) {
                     const shouldRedirect = await KsMessageBox({
                         title: t("confirmation"),
-                        message: () => h(KsMarkdown, {content: t("flow already exists message", {id: flowParsed.value.id, namespace: flowParsed.value.namespace})}),
+                        message: () => h(KsMarkdown, {content: t("flow already exists message", {id: flowParsed.value?.id ?? "", namespace: flowParsed.value?.namespace ?? ""})}),
                         type: "warning",
                         showCancelButton: true,
                     }).then(async () => {
@@ -489,8 +491,19 @@ export const useFlowStore = defineStore("flow", () => {
             })
     }
     function saveFlow(options: { flow: string }) {
-        const flowData = YAML_UTILS.parse(options.flow)
-        return axios.put(`${apiUrl()}/flows/${flowData.namespace}/${flowData.id}`, options.flow, {
+        // For draft saves the YAML may be unparseable; fall back to the currently loaded
+        // flow's identity (safe because saveFlow is only called when !isCreating).
+        let namespace: string;
+        let id: string;
+        try {
+            const flowData = YAML_UTILS.parse(options.flow);
+            namespace = flowData.namespace;
+            id = flowData.id;
+        } catch {
+            namespace = flow.value?.namespace ?? "";
+            id = flow.value?.id ?? "";
+        }
+        return axios.put(`${apiUrl()}/flows/${namespace}/${id}`, options.flow, {
             ...textYamlHeader,
             ...VALIDATE,
             // Draft is a server-side flag, not part of the YAML the user wrote - we ride it
