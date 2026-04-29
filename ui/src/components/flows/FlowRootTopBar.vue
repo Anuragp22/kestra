@@ -8,7 +8,10 @@
             <span :class="{'body-color': isDeleted}">
                 {{ routeInfo.title }}
                 <Badge v-if="routeInfo.beta" label="Beta" />
-                <Badge v-if="isDraft" :label="$t('draft')" />
+                <el-tag type="default" v-if="isDraft">
+                    <CircleOpacity />
+                    {{ $t('draft') }}
+                </el-tag>
             </span>
         </template>
         <template #actions>
@@ -28,6 +31,7 @@
     import action from "../../models/action"
     import {useAuthStore} from "override/stores/auth"
     import {useFlowStore} from "../../stores/flow"
+    import CircleOpacity from "vue-material-design-icons/CircleOpacity.vue"
 
     defineProps<{
         routeInfo: {
