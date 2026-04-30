@@ -419,6 +419,15 @@ public class QueryFilterTest {
             ),
 
             buildQueryFiltersForOperations(
+                Field.EXTERNAL_ID, Resource.BINDING,
+                Set.of(
+                    Op.EQUALS,
+                    Op.IN,
+                    Op.NOT_IN
+                )
+            ),
+
+            buildQueryFiltersForOperations(
                 Field.TAGS, Resource.APP,
                 Set.of(
                     Op.CONTAINS,
@@ -1150,6 +1159,22 @@ public class QueryFilterTest {
                     Op.LESS_THAN_OR_EQUAL_TO,
                     Op.GREATER_THAN,
                     Op.GREATER_THAN_OR_EQUAL_TO
+                )
+            ),
+
+            buildQueryFiltersForOperations(
+                Field.EXTERNAL_ID, Resource.BINDING,
+                Set.of(
+                    Op.NOT_EQUALS,
+                    Op.GREATER_THAN,
+                    Op.LESS_THAN,
+                    Op.GREATER_THAN_OR_EQUAL_TO,
+                    Op.LESS_THAN_OR_EQUAL_TO,
+                    Op.STARTS_WITH,
+                    Op.ENDS_WITH,
+                    Op.CONTAINS,
+                    Op.REGEX,
+                    Op.PREFIX
                 )
             ),
 
