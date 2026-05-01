@@ -64,17 +64,6 @@ export const useTriggerFilter = (): ComputedRef<FilterConfiguration> => {
                     valueType: "text",
                 }] : []) as any,
                 {
-                    key: "timeRange",
-                    label: t("filter.timeRange_trigger.label"),
-                    description: t("filter.timeRange_trigger.description"),
-                    comparators: [Comparators.EQUALS],
-                    valueType: "select",
-                    valueProvider: async () => {
-                        const {VALUES} = useValues("triggers");
-                        return VALUES.RELATIVE_DATE;
-                    }
-                },
-                {
                     key: "scope",
                     label: t("filter.scope_trigger.label"),
                     description: t("filter.scope_trigger.description"),
@@ -130,7 +119,49 @@ export const useTriggerFilter = (): ComputedRef<FilterConfiguration> => {
                         const {VALUES} = useValues("triggers");
                         return VALUES.TRIGGER_STATES;
                     }
-                }
+                },
+                {
+                    key: "lastTriggeredDate",
+                    label: t("filter.lastTriggeredDate.label"),
+                    description: t("filter.lastTriggeredDate.description"),
+                    comparators: [
+                        Comparators.EQUALS,
+                        Comparators.GREATER_THAN,
+                        Comparators.GREATER_THAN_OR_EQUAL_TO,
+                        Comparators.LESS_THAN,
+                        Comparators.LESS_THAN_OR_EQUAL_TO,
+                        Comparators.NOT_EQUALS,
+                    ],
+                    valueType: "select",
+                    showComparatorSelection: true,
+                    valueProvider: async () => {
+                        const {VALUES} = useValues("triggers");
+                        return VALUES.RELATIVE_DATE;
+                    }
+                },
+                {
+                    key: "source",
+                    label: t("filter.source_trigger.label"),
+                    description: t("filter.source_trigger.description"),
+                    comparators: [Comparators.EQUALS],
+                    valueType: "select",
+                    valueProvider: async () => [
+                        {label: t("filter.source_trigger.schedule"), value: "SCHEDULE"},
+                        {label: t("filter.source_trigger.polling"), value: "POLLING"},
+                        {label: t("filter.source_trigger.realtime"), value: "REALTIME"},
+                    ]
+                },
+                {
+                    key: "locked",
+                    label: t("filter.locked_trigger.label"),
+                    description: t("filter.locked_trigger.description"),
+                    comparators: [Comparators.EQUALS],
+                    valueType: "select",
+                    valueProvider: async () => [
+                        {label: t("filter.locked_trigger.locked"), value: "true"},
+                        {label: t("filter.locked_trigger.unlocked"), value: "false"},
+                    ]
+                },
             ]
         };
     });

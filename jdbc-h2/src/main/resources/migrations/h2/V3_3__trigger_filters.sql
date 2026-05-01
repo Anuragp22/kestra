@@ -1,0 +1,5 @@
+ALTER TABLE triggers ADD COLUMN "type" VARCHAR(50) GENERATED ALWAYS AS (JQ_STRING("value", '.type'));
+ALTER TABLE triggers ADD COLUMN "last_triggered_date" TIMESTAMP GENERATED ALWAYS AS (CAST(LEFT(JQ_STRING("value", '.lastTriggeredDate'), 26) AS TIMESTAMP));
+
+CREATE INDEX idx_trigger_type ON triggers ("type");
+CREATE INDEX idx_trigger_last_triggered_date ON triggers ("last_triggered_date");

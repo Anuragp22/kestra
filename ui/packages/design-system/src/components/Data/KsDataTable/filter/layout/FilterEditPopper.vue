@@ -12,6 +12,11 @@
             @update:selected-comparator="state.selectedComparator = $event"
         />
 
+        <TimeRangeSwitch
+            v-if="filterKey?.key === 'lastTriggeredDate'"
+            v-model="state.timeRangeMode"
+        />
+
         <component
             v-if="valueComponent"
             :is="valueComponent.component"
@@ -29,13 +34,15 @@
 </template>
 
 <script setup lang="ts">
-    import {computed, onMounted, reactive, inject} from "vue";
+    import {computed, onMounted, reactive, inject, watch} from "vue";
+    import {useValues} from "../../composables/useValues";
     import {useI18n} from "vue-i18n";
     import {
         type AppliedFilter,
         type FilterKeyConfig,
         type FilterValue,
         COMPARATOR_LABELS,
+        Comparators,
         TEXT_COMPARATORS,
         KV_COMPARATORS
     } from "../utils/filterTypes";
@@ -49,6 +56,7 @@
     import FilterDateTime from "./FilterDateTime.vue";
     import FilterMultiSelect from "./FilterMultiSelect.vue";
     import FilterComparatorSelect from "./FilterComparatorSelect.vue";
+    import TimeRangeSwitch from "./TimeRangeSwitch.vue";
 
     const {t} = useI18n({useScope: "global"});
 
@@ -194,6 +202,10 @@
             }
         };
 
+        if (props.filterKey?.key === "lastTriggeredDate" && state.timeRangeMode === "custom") {
+            return componentConfigs.date;
+        }
+
         return (
             componentConfigs[props.filterKey.valueType as keyof typeof componentConfigs] || null
         );
@@ -210,6 +222,9 @@
         case "multi-select":
             return `${state.keyValuePair.length} ${props.filterKey?.label} selected`;
         case "select":
+            if (props.filterKey?.key === "lastTriggeredDate" && state.timeRangeMode === "custom") {
+                return state.dateValue?.toLocaleDateString() ?? "";
+            }
             if (state.selectValue) {
                 const option = state.valueOptions?.find(opt => opt.value === state.selectValue);
                 return option ? option.label : state.selectValue;
@@ -259,6 +274,12 @@
         case "text":
             return {value: state.textValue, label: state.textValue};
         case "select":
+            if (props.filterKey?.key === "lastTriggeredDate" && state.timeRangeMode === "custom") {
+                return {
+                    value: state.dateValue ?? "",
+                    label: state.dateValue?.toLocaleDateString() ?? ""
+                };
+            }
             if (props.filterKey?.key === "timeRange" && state.timeRangeMode === "custom") {
                 return {
                     value: {
@@ -329,6 +350,12 @@
             const dateRange = filter.value as {startDate: Date; endDate: Date};
             state.startDateValue = dateRange.startDate;
             state.endDateValue = dateRange.endDate;
+        } else if (
+            props.filterKey?.key === "lastTriggeredDate" &&
+            filter.value instanceof Date
+        ) {
+            state.timeRangeMode = "custom";
+            state.dateValue = filter.value;
         } else {
             state.timeRangeMode = "predefined";
             state.startDateValue = null;
@@ -355,11 +382,20 @@
                 state.keyValuePair = Array.isArray(filter.value) ? filter.value : [];
                 break;
             case "select":
-                state.selectValue =
+                if (
+                    props.filterKey?.key === "lastTriggeredDate" &&
                     typeof filter.value === "string" &&
-                    state.valueOptions.find(option => option.value === filter.value)
-                        ? filter.value
-                        : "";
+                    !/^P(T?\d+[HMD]|\d+[YMDW])/.test(filter.value)
+                ) {
+                    state.timeRangeMode = "custom";
+                    state.dateValue = new Date(filter.value);
+                } else {
+                    state.selectValue =
+                        typeof filter.value === "string" &&
+                        state.valueOptions.find(option => option.value === filter.value)
+                            ? filter.value
+                            : "";
+                }
                 break;
             case "date":
                 state.dateValue = filter.value instanceof Date
@@ -382,14 +418,10 @@
 
         state.valueOptions = await props.filterKey.valueProvider();
 
-        if (
-            props.filterKey?.key === "timeRange" &&
-            typeof props.filter.value === "string"
-        ) {
+        const isDurationKey = ["timeRange", "lastTriggeredDate"].includes(props.filterKey?.key ?? "");
+        if (isDurationKey && typeof props.filter.value === "string") {
             const currentValue = props.filter.value;
-            const exists = state.valueOptions.some(
-                option => option.value === currentValue
-            );
+            const exists = state.valueOptions.some(option => option.value === currentValue);
             if (!exists && /^P(T?\d+[HMD]|\d+[YMDW])/.test(currentValue)) {
                 state.valueOptions.push({
                     value: currentValue,
@@ -406,6 +438,14 @@
         await loadValueOptions();
         initializeStateFromFilter(props.filter);
     };
+
+    watch(() => state.timeRangeMode, (mode) => {
+        if (props.filterKey?.key === "lastTriggeredDate") {
+            state.selectedComparator = mode === "predefined"
+                ? Comparators.EQUALS
+                : Comparators.GREATER_THAN_OR_EQUAL_TO;
+        }
+    });
 
     onMounted(initializeFilter);
 </script>
