@@ -4,6 +4,8 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 
 import io.kestra.core.exceptions.FlowProcessingException;
@@ -28,6 +30,7 @@ public class DefaultFlowMetaStore implements FlowMetaStoreInterface {
     private final PluginDefaultService pluginDefaultService;
     private final ConcurrentHashMap<String, FlowWithSource> cache = new ConcurrentHashMap<>();
     private final BroadcastQueueInterface<FlowInterface> flowQueue;
+    private final Cache<String, FlowWithSource> withDefaultCache;
 
     private QueueSubscriber<FlowInterface> subscriber;
 
@@ -37,6 +40,11 @@ public class DefaultFlowMetaStore implements FlowMetaStoreInterface {
         this.flowQueue = flowQueue;
 
         flowRepository.findAllWithSourceForAllTenants().forEach(it -> cache.put(it.uidWithoutRevision(), it));
+
+        // TODO make it configurable and observable
+        this.withDefaultCache = Caffeine.newBuilder()
+            .maximumSize(1000)
+            .build();
     }
 
     @VisibleForTesting
@@ -64,6 +72,9 @@ public class DefaultFlowMetaStore implements FlowMetaStoreInterface {
                         log.error("Unable to inject version defaults for flow {}", flow.getId(), e);
                     }
                 }
+
+                // always clear the withDefault cache so it's recomputed
+                withDefaultCache.invalidate(flow.uid());
             }
         });
     }
@@ -94,11 +105,20 @@ public class DefaultFlowMetaStore implements FlowMetaStoreInterface {
         return (Optional) Optional
             .ofNullable(flow)
             // this can happen if an execution is still running with an old revision or if the flow was deleted
-            .or(() -> flowRepository.findByIdWithSource(tenantId, namespace, id, revision)); // TODO evaluate if a cache is needed here
+            .or(() -> flowRepository.findByIdWithSource(tenantId, namespace, id, revision));
     }
 
     @Override
     public Optional<FlowWithSource> findByExecutionThenInjectDefaults(Execution execution) {
-        return findByExecution(execution).map(it -> pluginDefaultService.injectDefaults(it, execution));
+        var flowId = FlowId.uid(execution.getTenantId(), execution.getNamespace(), execution.getFlowId(), Optional.of(execution.getFlowRevision()));
+        var fromCache = withDefaultCache.getIfPresent(flowId);
+        if (fromCache != null) {
+            return Optional.of(fromCache);
+        }
+
+        var flowWithDefault = findByExecution(execution).map(it -> pluginDefaultService.injectDefaults(it, execution));
+        flowWithDefault.ifPresent(it -> withDefaultCache.put(flowId, it));
+        return flowWithDefault;
     }
+
 }
