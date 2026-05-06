@@ -58,7 +58,11 @@ export const encodeFiltersToQuery = (filters: Filter[], keyOfComparator: (compar
                 }
                 return query;
             default: {
-                if (Array.isArray(value) && value.some(v => typeof v === "string" && v.includes(":"))) {
+                if (typeof value === "object" && value !== null && "startDate" in value && "endDate" in value) {
+                    const {startDate, endDate} = value as {startDate: Date; endDate: Date};
+                    query[`filters[${key}][GREATER_THAN_OR_EQUAL_TO]`] = startDate.toISOString();
+                    query[`filters[${key}][LESS_THAN_OR_EQUAL_TO]`] = endDate.toISOString();
+                } else if (Array.isArray(value) && value.some(v => typeof v === "string" && v.includes(":"))) {
                     value.forEach((item: string) => {
                         const [k, v] = item.split(":", 2);
                         if (k && v) query[`filters[${key}][${comparatorKey}][${k}]`] = v;

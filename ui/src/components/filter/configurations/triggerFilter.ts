@@ -132,7 +132,8 @@ export const useTriggerFilter = (): ComputedRef<FilterConfiguration> => {
                         Comparators.LESS_THAN_OR_EQUAL_TO,
                         Comparators.NOT_EQUALS,
                     ],
-                    valueType: "select",
+                    valueType: "time-range",
+                    customDateMode: "range",
                     showComparatorSelection: true,
                     valueProvider: async () => {
                         const {VALUES} = useValues("triggers");

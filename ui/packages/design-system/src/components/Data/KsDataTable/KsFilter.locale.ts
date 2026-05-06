@@ -215,6 +215,23 @@ export default {
                 "label": "Worker ID",
                 "description": "Filter by worker ID"
             },
+            "lastTriggeredDate": {
+                "label": "Last Triggered Date",
+                "description": "Filter by the date the trigger was last fired"
+            },
+            "source_trigger": {
+                "label": "Source",
+                "description": "Filter by trigger mechanism type",
+                "schedule": "Schedule",
+                "polling": "Polling",
+                "realtime": "Realtime"
+            },
+            "locked_trigger": {
+                "label": "Locked",
+                "description": "Filter by trigger lock state",
+                "locked": "Locked",
+                "unlocked": "Unlocked"
+            },
             "metric": {
                 "label": "Metric",
                 "description": "Filter by metric type"

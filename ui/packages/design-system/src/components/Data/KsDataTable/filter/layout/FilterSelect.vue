@@ -1,7 +1,5 @@
 <template>
     <div class="select-panel">
-        <TimeRangeSwitch v-if="filterKey?.key === 'timeRange'" v-model="local.timeRangeMode" />
-
         <div v-if="local.timeRangeMode === 'predefined'" class="section">
             <KsSelect
                 v-model="local.value"
@@ -51,13 +49,11 @@
 
 <script setup lang="ts">
     import {reactive, toRefs, watchEffect} from "vue";
-    import TimeRangeSwitch from "./TimeRangeSwitch.vue";
 
     const props = defineProps<{
         label?: string;
         modelValue: string;
         placeholder?: string;
-        filterKey?: {key: string};
         endDateValue?: Date | null;
         startDateValue?: Date | null;
         timeRangeMode?: "predefined" | "custom";
@@ -68,7 +64,6 @@
         "update:modelValue": [value: string];
         "update:endDateValue": [date: Date | null];
         "update:startDateValue": [date: Date | null];
-        "update:timeRangeMode": [mode: "predefined" | "custom"];
     }>();
 
     const {modelValue, timeRangeMode, startDateValue, endDateValue} = toRefs(props);
@@ -89,7 +84,6 @@
 
     watchEffect(() => {
         emit("update:modelValue", local.value);
-        emit("update:timeRangeMode", local.timeRangeMode);
         emit("update:endDateValue", local.endDateValue);
         emit("update:startDateValue", local.startDateValue);
     });

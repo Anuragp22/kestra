@@ -17,8 +17,8 @@ export enum Comparators {
 export const KV_COMPARATORS = [Comparators.EQUALS, Comparators.NOT_EQUALS];
 export const TEXT_COMPARATORS = [
     Comparators.CONTAINS,
-    Comparators.ENDS_WITH, 
-    Comparators.STARTS_WITH, 
+    Comparators.ENDS_WITH,
+    Comparators.STARTS_WITH,
 ];
 
 export interface FilterKeyConfig {
@@ -29,7 +29,8 @@ export interface FilterKeyConfig {
     comparators: Comparators[];
     showComparatorSelection?: boolean;
     valueProvider?: () => Promise<FilterValue[]>;
-    valueType: "text" | "select" | "date" | "multi-select" | "key-value" | "radio";
+    valueType: "text" | "select" | "date" | "multi-select" | "key-value" | "radio" | "time-range";
+    customDateMode?: "single" | "range";
     visibleByDefault?: boolean;
     defaultValue?: AppliedFilter["value"] | (() => AppliedFilter["value"]);
 }
@@ -76,17 +77,17 @@ export interface TableProperties {
 }
 
 export interface TableOptions {
-    chart?: { 
-        shown?: boolean; 
-        value?: boolean; 
-        callback?: (value: boolean) => void 
+    chart?: {
+        shown?: boolean;
+        value?: boolean;
+        callback?: (value: boolean) => void
     };
     columns?: {
         shown?: boolean
     };
-    refresh?: { 
-        shown?: boolean; 
-        callback?: () => void 
+    refresh?: {
+        shown?: boolean;
+        callback?: () => void
     };
 }
 

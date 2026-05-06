@@ -116,7 +116,8 @@ export const useExecutionFilter = (): ComputedRef<FilterConfiguration> => {
                     label: t("filter.timeRange.label"),
                     description: t("filter.timeRange.description"),
                     comparators: [Comparators.EQUALS],
-                    valueType: "select",
+                    valueType: "time-range",
+                    customDateMode: "range",
                     valueProvider: async () => {
                         const {VALUES} = useValues("executions");
                         return VALUES.RELATIVE_DATE;

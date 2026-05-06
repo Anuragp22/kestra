@@ -13,7 +13,7 @@
         />
 
         <TimeRangeSwitch
-            v-if="filterKey?.key === 'lastTriggeredDate'"
+            v-if="filterKey.valueType === 'time-range'"
             v-model="state.timeRangeMode"
         />
 
@@ -35,7 +35,6 @@
 
 <script setup lang="ts">
     import {computed, onMounted, reactive, inject, watch} from "vue";
-    import {useValues} from "../../composables/useValues";
     import {useI18n} from "vue-i18n";
     import {
         type AppliedFilter,
@@ -57,7 +56,6 @@
     import FilterMultiSelect from "./FilterMultiSelect.vue";
     import FilterComparatorSelect from "./FilterComparatorSelect.vue";
     import TimeRangeSwitch from "./TimeRangeSwitch.vue";
-
     const {t} = useI18n({useScope: "global"});
 
     const RELATIVE_DATE = [
@@ -125,6 +123,34 @@
             };
         }
 
+        // Generic time-range type: predefined select + TimeRangeSwitch + single-date or range custom
+        if (props.filterKey?.valueType === "time-range") {
+            if (state.timeRangeMode === "custom" && props.filterKey.customDateMode !== "range") {
+                return {
+                    component: FilterDateTime,
+                    props: {dateValue: state.dateValue, label: props.filterKey?.label},
+                    events: {"update:date-value": (value: Date | null) => (state.dateValue = value)}
+                };
+            }
+            return {
+                component: FilterSelect,
+                props: {
+                    modelValue: state.selectValue,
+                    options: state.valueOptions,
+                    searchable: props.filterKey?.searchable,
+                    label: props.filterKey?.label,
+                    timeRangeMode: state.timeRangeMode,
+                    startDateValue: state.startDateValue,
+                    endDateValue: state.endDateValue
+                },
+                events: {
+                    "update:modelValue": (value: string) => (state.selectValue = value),
+                    "update:start-date-value": (value: Date | null) => (state.startDateValue = value),
+                    "update:end-date-value": (value: Date | null) => (state.endDateValue = value)
+                }
+            };
+        }
+
         // Key-value pair filters (details, labels)
         if (isKVPairFilter.value) {
             return {
@@ -142,19 +168,10 @@
                     modelValue: state.selectValue,
                     options: state.valueOptions,
                     searchable: props.filterKey?.searchable,
-                    label: props.filterKey?.label,
-                    filterKey: props.filterKey,
-                    timeRangeMode: state.timeRangeMode,
-                    startDateValue: state.startDateValue,
-                    endDateValue: state.endDateValue
+                    label: props.filterKey?.label
                 },
                 events: {
-                    "update:modelValue": (value: string) => (state.selectValue = value),
-                    "update:time-range-mode": (value: "predefined" | "custom") =>
-                        (state.timeRangeMode = value),
-                    "update:start-date-value": (value: Date | null) =>
-                        (state.startDateValue = value),
-                    "update:end-date-value": (value: Date | null) => (state.endDateValue = value)
+                    "update:modelValue": (value: string) => (state.selectValue = value)
                 }
             },
             text: {
@@ -202,10 +219,6 @@
             }
         };
 
-        if (props.filterKey?.key === "lastTriggeredDate" && state.timeRangeMode === "custom") {
-            return componentConfigs.date;
-        }
-
         return (
             componentConfigs[props.filterKey.valueType as keyof typeof componentConfigs] || null
         );
@@ -213,6 +226,19 @@
 
     const footerText = computed(() => {
         if (isTextOp.value) return state.textValue ?? "";
+
+        if (props.filterKey?.valueType === "time-range") {
+            if (state.timeRangeMode === "custom") {
+                if (props.filterKey.customDateMode === "range") {
+                    return (state.startDateValue && state.endDateValue)
+                        ? `${state.startDateValue.toLocaleDateString()} - ${state.endDateValue.toLocaleDateString()}`
+                        : "";
+                }
+                return state.dateValue?.toLocaleDateString() ?? "";
+            }
+            const option = state.valueOptions?.find(opt => opt.value === state.selectValue);
+            return option ? option.label : (state.selectValue ?? "");
+        }
 
         if (isKVPairFilter.value && props.filterKey?.key === "labels") {
             return t("filter.kv_pair_selected", {count: state.keyValuePair.length});
@@ -222,9 +248,6 @@
         case "multi-select":
             return `${state.keyValuePair.length} ${props.filterKey?.label} selected`;
         case "select":
-            if (props.filterKey?.key === "lastTriggeredDate" && state.timeRangeMode === "custom") {
-                return state.dateValue?.toLocaleDateString() ?? "";
-            }
             if (state.selectValue) {
                 const option = state.valueOptions?.find(opt => opt.value === state.selectValue);
                 return option ? option.label : state.selectValue;
@@ -263,6 +286,23 @@
         if (isTextOp.value) {
             return {value: state.textValue, label: state.textValue};
         }
+
+        if (props.filterKey?.valueType === "time-range") {
+            if (state.timeRangeMode === "custom") {
+                if (props.filterKey.customDateMode === "range") {
+                    return {
+                        value: {startDate: state.startDateValue!, endDate: state.endDateValue!},
+                        label: `${state.startDateValue!.toLocaleDateString()} - ${state.endDateValue!.toLocaleDateString()}`
+                    };
+                }
+                return {value: state.dateValue ?? "", label: state.dateValue?.toLocaleDateString() ?? ""};
+            }
+            return {
+                value: state.selectValue,
+                label: state.valueOptions?.find(opt => opt.value === state.selectValue)?.label || state.selectValue
+            };
+        }
+
         if (isKVPairFilter.value) {
             return {
                 value: state.keyValuePair,
@@ -274,21 +314,6 @@
         case "text":
             return {value: state.textValue, label: state.textValue};
         case "select":
-            if (props.filterKey?.key === "lastTriggeredDate" && state.timeRangeMode === "custom") {
-                return {
-                    value: state.dateValue ?? "",
-                    label: state.dateValue?.toLocaleDateString() ?? ""
-                };
-            }
-            if (props.filterKey?.key === "timeRange" && state.timeRangeMode === "custom") {
-                return {
-                    value: {
-                        startDate: state.startDateValue!,
-                        endDate: state.endDateValue!
-                    },
-                    label: `${state.startDateValue!.toLocaleDateString()} - ${state.endDateValue!.toLocaleDateString()}`
-                };
-            }
             return {
                 value: state.selectValue,
                 label:
@@ -340,26 +365,36 @@
     const initializeStateFromFilter = (filter: AppliedFilter) => {
         state.selectedComparator = filter.comparator;
 
-        if (
-            props.filterKey?.key === "timeRange" &&
-            typeof filter.value === "object" &&
-            filter.value !== null &&
-            "startDate" in filter.value
-        ) {
-            state.timeRangeMode = "custom";
-            const dateRange = filter.value as {startDate: Date; endDate: Date};
-            state.startDateValue = dateRange.startDate;
-            state.endDateValue = dateRange.endDate;
-        } else if (
-            props.filterKey?.key === "lastTriggeredDate" &&
-            filter.value instanceof Date
-        ) {
-            state.timeRangeMode = "custom";
-            state.dateValue = filter.value;
-        } else {
-            state.timeRangeMode = "predefined";
-            state.startDateValue = null;
-            state.endDateValue = null;
+        if (props.filterKey?.valueType === "time-range") {
+            const isRangeCustom =
+                props.filterKey.customDateMode === "range" &&
+                typeof filter.value === "object" &&
+                filter.value !== null &&
+                "startDate" in filter.value;
+
+            if (isRangeCustom) {
+                state.timeRangeMode = "custom";
+                const {startDate, endDate} = filter.value as {startDate: Date; endDate: Date};
+                state.startDateValue = startDate;
+                state.endDateValue = endDate;
+            } else if (props.filterKey.customDateMode !== "range") {
+                const valueStr = typeof filter.value === "string" ? filter.value : "";
+                const isDuration = /^P(T?\d+[HMD]|\d+[YMDW])/.test(valueStr);
+                if (valueStr && !isDuration) {
+                    state.timeRangeMode = "custom";
+                    state.dateValue = filter.value instanceof Date ? filter.value : new Date(valueStr);
+                } else {
+                    state.timeRangeMode = "predefined";
+                    state.dateValue = null;
+                    state.selectValue = valueStr;
+                }
+            } else {
+                state.timeRangeMode = "predefined";
+                state.startDateValue = null;
+                state.endDateValue = null;
+                state.selectValue = typeof filter.value === "string" ? filter.value : "";
+            }
+            return;
         }
 
         const isTextOp = TEXT_COMPARATORS.includes(filter.comparator) && props.filterKey?.key !== "resources";
@@ -382,20 +417,11 @@
                 state.keyValuePair = Array.isArray(filter.value) ? filter.value : [];
                 break;
             case "select":
-                if (
-                    props.filterKey?.key === "lastTriggeredDate" &&
+                state.selectValue =
                     typeof filter.value === "string" &&
-                    !/^P(T?\d+[HMD]|\d+[YMDW])/.test(filter.value)
-                ) {
-                    state.timeRangeMode = "custom";
-                    state.dateValue = new Date(filter.value);
-                } else {
-                    state.selectValue =
-                        typeof filter.value === "string" &&
-                        state.valueOptions.find(option => option.value === filter.value)
-                            ? filter.value
-                            : "";
-                }
+                    state.valueOptions.find(option => option.value === filter.value)
+                        ? filter.value
+                        : "";
                 break;
             case "date":
                 state.dateValue = filter.value instanceof Date
@@ -418,10 +444,14 @@
 
         state.valueOptions = await props.filterKey.valueProvider();
 
-        const isDurationKey = ["timeRange", "lastTriggeredDate"].includes(props.filterKey?.key ?? "");
-        if (isDurationKey && typeof props.filter.value === "string") {
+        if (
+            props.filterKey?.valueType === "time-range" &&
+            typeof props.filter.value === "string"
+        ) {
             const currentValue = props.filter.value;
-            const exists = state.valueOptions.some(option => option.value === currentValue);
+            const exists = state.valueOptions.some(
+                option => option.value === currentValue
+            );
             if (!exists && /^P(T?\d+[HMD]|\d+[YMDW])/.test(currentValue)) {
                 state.valueOptions.push({
                     value: currentValue,
@@ -440,7 +470,7 @@
     };
 
     watch(() => state.timeRangeMode, (mode) => {
-        if (props.filterKey?.key === "lastTriggeredDate") {
+        if (props.filterKey?.valueType === "time-range" && props.filterKey?.customDateMode !== "range") {
             state.selectedComparator = mode === "predefined"
                 ? Comparators.EQUALS
                 : Comparators.GREATER_THAN_OR_EQUAL_TO;

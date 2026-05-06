@@ -169,6 +169,19 @@ export function useFilters(
             };
         }
 
+        if (config?.valueType === "time-range" && params.length >= 2) {
+            const gteParam = params.find((p: any) => p?.operation === "GREATER_THAN_OR_EQUAL_TO");
+            const lteParam = params.find((p: any) => p?.operation === "LESS_THAN_OR_EQUAL_TO");
+            if (gteParam && lteParam) {
+                const startDate = new Date(gteParam.value as string);
+                const endDate = new Date(lteParam.value as string);
+                return {
+                    value: {startDate, endDate},
+                    valueLabel: `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`
+                };
+            }
+        }
+
         let value = Array.isArray(params[0]?.value)
             ? params[0].value[0]
             : (params[0]?.value as string);

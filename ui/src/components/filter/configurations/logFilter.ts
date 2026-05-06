@@ -72,7 +72,8 @@ export const useLogFilter = (): ComputedRef<FilterConfiguration> => {
                     label: t("filter.timeRange_log.label"),
                     description: t("filter.timeRange_log.description"),
                     comparators: [Comparators.EQUALS],
-                    valueType: "select",
+                    valueType: "time-range",
+                    customDateMode: "range",
                     valueProvider: async () => {
                         const {VALUES} = useValues("logs");
                         return VALUES.RELATIVE_DATE;
