@@ -150,6 +150,119 @@ public abstract class AbstractServiceInstanceRepositoryTest {
                     .value(Instant.now().minusSeconds(60).toString())
                     .build()
             )
+            .build(),
+
+        // ----------------------------------------------------------------------
+        // CREATED + ISO-8601 duration value.
+        // The duration is resolved to a threshold (now - duration) and the user-
+        // supplied operation is applied to that threshold. The instance was created
+        // ~30s before the test runs, so:
+        //   threshold(PT5M) = now - 5min  → instance.createdAt > threshold
+        //   threshold(PT1S) = now - 1s    → instance.createdAt < threshold
+        // ----------------------------------------------------------------------
+
+        // GTE PT5M: created_at >= now-5min  → matches (instance is ~30s old, well within 5min)
+        FilterTestCase.builder()
+            .instances(List.of(runningInstance))
+            .expectedInstances(List.of(runningInstance))
+            .filter(
+                QueryFilter.builder()
+                    .field(QueryFilter.Field.CREATED)
+                    .operation(QueryFilter.Op.GREATER_THAN_OR_EQUAL_TO)
+                    .value("PT5M")
+                    .build()
+            )
+            .build(),
+
+        // GTE PT1S: created_at >= now-1s   → does not match (instance is older than 1s)
+        FilterTestCase.builder()
+            .instances(List.of(runningInstance))
+            .expectedInstances(List.of())
+            .filter(
+                QueryFilter.builder()
+                    .field(QueryFilter.Field.CREATED)
+                    .operation(QueryFilter.Op.GREATER_THAN_OR_EQUAL_TO)
+                    .value("PT1S")
+                    .build()
+            )
+            .build(),
+
+        // GT PT5M: created_at > now-5min   → matches
+        FilterTestCase.builder()
+            .instances(List.of(runningInstance))
+            .expectedInstances(List.of(runningInstance))
+            .filter(
+                QueryFilter.builder()
+                    .field(QueryFilter.Field.CREATED)
+                    .operation(QueryFilter.Op.GREATER_THAN)
+                    .value("PT5M")
+                    .build()
+            )
+            .build(),
+
+        // GT PT1S: created_at > now-1s    → does not match
+        FilterTestCase.builder()
+            .instances(List.of(runningInstance))
+            .expectedInstances(List.of())
+            .filter(
+                QueryFilter.builder()
+                    .field(QueryFilter.Field.CREATED)
+                    .operation(QueryFilter.Op.GREATER_THAN)
+                    .value("PT1S")
+                    .build()
+            )
+            .build(),
+
+        // LTE PT1S: created_at <= now-1s  → matches (instance is older than 1s)
+        FilterTestCase.builder()
+            .instances(List.of(runningInstance))
+            .expectedInstances(List.of(runningInstance))
+            .filter(
+                QueryFilter.builder()
+                    .field(QueryFilter.Field.CREATED)
+                    .operation(QueryFilter.Op.LESS_THAN_OR_EQUAL_TO)
+                    .value("PT1S")
+                    .build()
+            )
+            .build(),
+
+        // LTE PT5M: created_at <= now-5min → does not match (instance is younger than 5min)
+        FilterTestCase.builder()
+            .instances(List.of(runningInstance))
+            .expectedInstances(List.of())
+            .filter(
+                QueryFilter.builder()
+                    .field(QueryFilter.Field.CREATED)
+                    .operation(QueryFilter.Op.LESS_THAN_OR_EQUAL_TO)
+                    .value("PT5M")
+                    .build()
+            )
+            .build(),
+
+        // LT PT1S: created_at < now-1s    → matches
+        FilterTestCase.builder()
+            .instances(List.of(runningInstance))
+            .expectedInstances(List.of(runningInstance))
+            .filter(
+                QueryFilter.builder()
+                    .field(QueryFilter.Field.CREATED)
+                    .operation(QueryFilter.Op.LESS_THAN)
+                    .value("PT1S")
+                    .build()
+            )
+            .build(),
+
+        // LT PT5M: created_at < now-5min  → does not match
+        FilterTestCase.builder()
+            .instances(List.of(runningInstance))
+            .expectedInstances(List.of())
+            .filter(
+                QueryFilter.builder()
+                    .field(QueryFilter.Field.CREATED)
+                    .operation(QueryFilter.Op.LESS_THAN)
+                    .value("PT5M")
+                    .build()
+            )
             .build()
     );
 
