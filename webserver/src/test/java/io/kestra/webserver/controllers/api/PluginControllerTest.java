@@ -2,9 +2,15 @@ package io.kestra.webserver.controllers.api;
 
 import java.util.List;
 import java.util.Map;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.FieldSource;
+import org.mockito.Mockito;
 
 import io.kestra.core.Helpers;
 import io.kestra.core.docs.DocumentationWithSchema;
@@ -16,16 +22,24 @@ import io.kestra.core.models.annotations.PluginSubGroup;
 import io.kestra.core.models.ui.PluginUiManifest;
 import io.kestra.core.models.ui.PluginUiModuleWithGroup;
 import io.kestra.core.models.ui.TaskWithVersion;
+import io.kestra.core.plugins.DefaultPluginRegistry;
+import io.kestra.core.plugins.PluginRegistry;
+import io.kestra.core.plugins.RegisteredPlugin;
 import io.kestra.plugin.core.debug.Return;
 import io.kestra.plugin.core.log.Log;
+
+import io.kestra.webserver.responses.PagedResults;
 
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
+import io.micronaut.http.uri.UriBuilder;
 import io.micronaut.reactor.http.client.ReactorHttpClient;
+import io.micronaut.test.annotation.MockBean;
 import jakarta.inject.Inject;
+import lombok.Builder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -37,21 +51,37 @@ class PluginControllerTest {
     @Client("/")
     ReactorHttpClient client;
 
+    @Inject
+    PluginRegistry pluginRegistry;
+
     public static final String PATH = "/api/v1/plugins";
+
+    @MockBean(PluginRegistry.class)
+    PluginRegistry pluginRegistry() {
+        return Mockito.spy(DefaultPluginRegistry.getOrCreate());
+    }
 
     @BeforeAll
     public static void beforeAll() {
         Helpers.loadExternalPluginsFromClasspath();
     }
 
+    @AfterEach
+    void resetMock() {
+        Mockito.reset(pluginRegistry);
+    }
+
     @Test
+    @SuppressWarnings("unchecked")
     void plugins() {
-        List<Plugin> list = client.toBlocking().retrieve(
+        PagedResults<Plugin> response = client.toBlocking().retrieve(
             HttpRequest.GET(PATH),
-            Argument.listOf(Plugin.class)
+            Argument.of(PagedResults.class, Plugin.class)
         );
+        List<Plugin> list = response.getResults();
 
         assertThat(list.size()).isEqualTo(3);
+        assertThat(response.getTotal()).isEqualTo(3);
 
         Plugin template = list.stream()
             .filter(plugin -> plugin.getTitle().equals("plugin-template-test"))
@@ -76,12 +106,12 @@ class PluginControllerTest {
         assertThat(core.getCategories()).containsExactlyInAnyOrder(PluginSubGroup.PluginCategory.CORE);
 
         // classLoader can lead to duplicate plugins for the core, just verify that the response is still the same
-        list = client.toBlocking().retrieve(
+        response = client.toBlocking().retrieve(
             HttpRequest.GET(PATH),
-            Argument.listOf(Plugin.class)
+            Argument.of(PagedResults.class, Plugin.class)
         );
 
-        assertThat(list.size()).isEqualTo(3);
+        assertThat(response.getResults().size()).isEqualTo(3);
     }
 
     @Test
@@ -293,5 +323,136 @@ class PluginControllerTest {
             )
         );
         assertThat(exception.code()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
+    }
+
+    // ----------------------------------------------------------------------
+    // Filter behavior tests for {@code /api/v1/plugins} (QUERY + ARTIFACT_ID).
+    // Each case overrides {@code pluginRegistry.plugins()} with a deterministic
+    // 3-plugin fixture (AWS / GCP / Azure) so CI runs are stable regardless of
+    // classpath jars. {@link #resetMock()} restores the spy after each test.
+    // ----------------------------------------------------------------------
+
+    private static final RegisteredPlugin FILTER_AWS = registered("plugin-aws", "AWS", "io.kestra.plugin");
+    private static final RegisteredPlugin FILTER_GCP = registered("plugin-gcp", "GCP", "io.kestra.plugin");
+    private static final RegisteredPlugin FILTER_AZURE = registered("plugin-azure", "Azure", "io.kestra.plugin");
+    private static final List<RegisteredPlugin> FILTER_FIXTURE = List.of(FILTER_AWS, FILTER_GCP, FILTER_AZURE);
+
+    @SuppressWarnings("unused")
+    public static final List<FilterTestCase> filterTestCases = List.of(
+        // ------------------------------ ARTIFACT_ID IN ------------------------------
+        FilterTestCase.builder()
+            .queryKey("filters[artifactId][IN]")
+            .queryValue("plugin-aws,plugin-gcp")
+            .expectedNames(List.of("plugin-aws", "plugin-gcp"))
+            .build(),
+        FilterTestCase.builder()
+            .queryKey("filters[artifactId][IN]")
+            .queryValue("plugin-aws")
+            .expectedNames(List.of("plugin-aws"))
+            .build(),
+        FilterTestCase.builder()
+            .queryKey("filters[artifactId][IN]")
+            .queryValue("plugin-does-not-exist")
+            .expectedNames(List.of())
+            .build(),
+
+        // ---------------------------- ARTIFACT_ID NOT_IN ----------------------------
+        FilterTestCase.builder()
+            .queryKey("filters[artifactId][NOT_IN]")
+            .queryValue("plugin-aws,plugin-gcp")
+            .expectedNames(List.of("plugin-azure"))
+            .build(),
+
+        // ------------------------------- QUERY EQUALS -------------------------------
+        // matches by name
+        FilterTestCase.builder()
+            .queryKey("filters[q][EQUALS]")
+            .queryValue("plugin-aws")
+            .expectedNames(List.of("plugin-aws"))
+            .build(),
+        // matches by title
+        FilterTestCase.builder()
+            .queryKey("filters[q][EQUALS]")
+            .queryValue("Azure")
+            .expectedNames(List.of("plugin-azure"))
+            .build(),
+        // matches by shared group → all three
+        FilterTestCase.builder()
+            .queryKey("filters[q][EQUALS]")
+            .queryValue("io.kestra.plugin")
+            .expectedNames(List.of("plugin-aws", "plugin-gcp", "plugin-azure"))
+            .build(),
+        // no match
+        FilterTestCase.builder()
+            .queryKey("filters[q][EQUALS]")
+            .queryValue("missing")
+            .expectedNames(List.of())
+            .build(),
+
+        // ----------------------------- QUERY NOT_EQUALS -----------------------------
+        FilterTestCase.builder()
+            .queryKey("filters[q][NOT_EQUALS]")
+            .queryValue("aws")
+            .expectedNames(List.of("plugin-gcp", "plugin-azure"))
+            .build()
+    );
+
+    @ParameterizedTest
+    @FieldSource("filterTestCases")
+    @SuppressWarnings("unchecked")
+    void shouldFilterPluginsByQueryAndArtifactId(FilterTestCase testCase) {
+        // Given — override the spy's plugins() with the deterministic fixture
+        Mockito.doReturn(FILTER_FIXTURE).when(pluginRegistry).plugins();
+
+        // When
+        UriBuilder uri = UriBuilder.of(PATH);
+        if (testCase.queryKey() != null) {
+            uri.queryParam(testCase.queryKey(), testCase.queryValue());
+        }
+        PagedResults<Plugin> response = client.toBlocking().retrieve(
+            HttpRequest.GET(uri.build()),
+            Argument.of(PagedResults.class, Plugin.class)
+        );
+
+        // Then
+        assertThat(response.getResults())
+            .extracting(Plugin::getName)
+            .containsExactlyInAnyOrderElementsOf(testCase.expectedNames());
+        assertThat(response.getTotal()).isEqualTo(testCase.expectedNames().size());
+    }
+
+    private static RegisteredPlugin registered(String name, String title, String group) {
+        Manifest manifest = new Manifest();
+        Attributes attrs = manifest.getMainAttributes();
+        attrs.put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        attrs.putValue("X-Kestra-Name", name);
+        attrs.putValue("X-Kestra-Title", title);
+        attrs.putValue("X-Kestra-Group", group);
+        return RegisteredPlugin.builder()
+            .manifest(manifest)
+            .tasks(List.of())
+            .triggers(List.of())
+            .storages(List.of())
+            .secrets(List.of())
+            .taskRunners(List.of())
+            .assets(List.of())
+            .assetExporters(List.of())
+            .apps(List.of())
+            .appBlocks(List.of())
+            .charts(List.of())
+            .dataFilters(List.of())
+            .dataFiltersKPI(List.of())
+            .logExporters(List.of())
+            .additionalPlugins(List.of())
+            .guides(List.of())
+            .aliases(Map.of())
+            .build();
+    }
+
+    @Builder
+    public record FilterTestCase(
+        String queryKey,
+        String queryValue,
+        List<String> expectedNames) {
     }
 }

@@ -143,6 +143,12 @@ public record QueryFilter(
                 return List.of(Op.EQUALS, Op.NOT_EQUALS, Op.CONTAINS, Op.STARTS_WITH, Op.ENDS_WITH, Op.REGEX, Op.IN, Op.NOT_IN);
             }
         },
+        ARTIFACT_ID("artifactId") {
+            @Override
+            public List<Op> supportedOp() {
+                return List.of(Op.IN, Op.NOT_IN);
+            }
+        },
         TYPE("type") {
             @Override
             public List<Op> supportedOp() {
@@ -512,7 +518,8 @@ public record QueryFilter(
             @Override
             public List<Field> supportedField() {
                 return List.of(
-                    Field.QUERY
+                    Field.QUERY,
+                    Field.ARTIFACT_ID
                 );
             }
         },

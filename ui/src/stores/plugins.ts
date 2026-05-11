@@ -184,9 +184,9 @@ export const usePluginsStore = defineStore("plugins", () => {
     }
 
     async function list() {
-        const response = await axios.get<Plugin[]>(`${apiUrlWithoutTenants()}/plugins`);
-        plugins.value = response.data;
-        return response.data;
+        const response = await axios.get<{results: Plugin[]; total: number}>(`${apiUrlWithoutTenants()}/plugins`);
+        plugins.value = response.data.results;
+        return response.data.results;
     }
 
     async function listWithSubgroup(options: Record<string, any>) {

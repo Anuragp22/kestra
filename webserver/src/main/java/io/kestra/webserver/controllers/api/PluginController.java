@@ -3,11 +3,13 @@ package io.kestra.webserver.controllers.api;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import io.kestra.core.docs.*;
 import io.kestra.core.exceptions.NotFoundException;
+import io.kestra.core.models.QueryFilter;
 import io.kestra.core.models.flows.Input;
 import io.kestra.core.models.flows.Type;
 import io.kestra.core.models.tasks.FlowableTask;
@@ -16,8 +18,12 @@ import io.kestra.core.models.ui.PluginUiModuleWithGroup;
 import io.kestra.core.models.ui.TaskWithVersion;
 import io.kestra.core.plugins.PluginRegistry;
 import io.kestra.core.plugins.RegisteredPlugin;
+import io.kestra.core.repositories.ArrayListTotal;
 import io.kestra.core.utils.ListUtils;
 import io.kestra.core.utils.MapUtils;
+import io.kestra.webserver.converters.QueryFilterFormat;
+import io.kestra.webserver.responses.PagedResults;
+import io.kestra.webserver.utils.Searcheable;
 
 import io.micronaut.cache.annotation.Cacheable;
 import io.micronaut.core.annotation.NonNull;
@@ -38,6 +44,7 @@ import io.micronaut.scheduling.TaskExecutors;
 import io.micronaut.scheduling.annotation.ExecuteOn;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import jakarta.inject.Inject;
 
 import static io.kestra.core.utils.Rethrow.throwFunction;
@@ -131,11 +138,58 @@ public class PluginController {
     @Get
     @ExecuteOn(TaskExecutors.IO)
     @Operation(tags = { "Plugins" }, summary = "Get list of plugins")
-    public List<Plugin> listPlugins() {
-        return pluginRegistry.plugins()
+    public PagedResults<Plugin> listPlugins(
+        @Parameter(description = "The current page") @QueryValue(value = "page", defaultValue = "1") int page,
+        @Parameter(description = "The current page size") @QueryValue(value = "size", defaultValue = "10000") int size,
+        @Parameter(description = "Filters", in = ParameterIn.QUERY) @QueryFilterFormat() @Nullable List<QueryFilter> filters
+    ) {
+        List<Plugin> items = pluginRegistry.plugins()
             .stream()
             .map(p -> Plugin.of(p, null))
             .toList();
+
+        BiPredicate<Plugin, Object> artifactIdIn = PluginController::artifactIdMatches;
+        BiPredicate<Plugin, Object> queryMatches = PluginController::queryMatches;
+
+        // Todo: replace with bean candidate when avalible.
+        ArrayListTotal<Plugin> results = Searcheable.of(items).search(
+            Searcheable.Searched.<Plugin>builder()
+                .queryFilters(filters)
+                .size(size)
+                .page(page)
+                .searchableQueryFilterExtractor(QueryFilter.Field.QUERY, QueryFilter.Op.EQUALS, queryMatches)
+                .searchableQueryFilterExtractor(QueryFilter.Field.QUERY, QueryFilter.Op.NOT_EQUALS, queryMatches.negate())
+                .searchableQueryFilterExtractor(QueryFilter.Field.ARTIFACT_ID, QueryFilter.Op.IN, artifactIdIn)
+                .searchableQueryFilterExtractor(QueryFilter.Field.ARTIFACT_ID, QueryFilter.Op.NOT_IN, artifactIdIn.negate())
+                .build()
+        );
+
+        return PagedResults.of(results);
+    }
+
+    /**
+     * Predicate used by the IN/NOT_IN ARTIFACT_ID filter for {@link #listPlugins}.
+     * Returns {@code true} when {@link Plugin#getName()} (the {@code X-Kestra-Name} manifest entry,
+     * i.e. the Maven artifactId) is contained in {@code filterValue}.
+     */
+    static boolean artifactIdMatches(Plugin item, Object filterValue) {
+        if (item.getName() == null) {
+            return false;
+        }
+        List<String> values = ListUtils.convertToListString(filterValue);
+        return values.contains(item.getName());
+    }
+
+    /**
+     * Predicate used by the EQUALS/NOT_EQUALS QUERY filter for {@link #listPlugins}.
+     * Returns {@code true} when {@code filterValue}'s string representation is a substring of any of
+     * {@link Plugin#getTitle()}, {@link Plugin#getGroup()}, or {@link Plugin#getName()}.
+     */
+    static boolean queryMatches(Plugin item, Object filterValue) {
+        String needle = filterValue == null ? "" : filterValue.toString();
+        return Stream.of(item.getTitle(), item.getGroup(), item.getName())
+            .filter(Objects::nonNull)
+            .anyMatch(field -> field.contains(needle));
     }
 
     @Get(uri = "icons")

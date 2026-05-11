@@ -585,6 +585,14 @@ public class QueryFilterTest {
                     Op.GREATER_THAN_OR_EQUAL_TO,
                     Op.LESS_THAN_OR_EQUAL_TO
                 )
+            ),
+
+            buildQueryFiltersForOperations(
+                Field.ARTIFACT_ID, Resource.PLUGIN,
+                Set.of(
+                    Op.IN,
+                    Op.NOT_IN
+                )
             )
         ).flatMap(s -> s);
     }
@@ -1359,6 +1367,23 @@ public class QueryFilterTest {
                 Set.of(
                     Op.IN,
                     Op.NOT_IN,
+                    Op.STARTS_WITH,
+                    Op.ENDS_WITH,
+                    Op.CONTAINS,
+                    Op.REGEX,
+                    Op.PREFIX
+                )
+            ),
+
+            buildQueryFiltersForOperations(
+                Field.ARTIFACT_ID, Resource.PLUGIN,
+                Set.of(
+                    Op.EQUALS,
+                    Op.NOT_EQUALS,
+                    Op.GREATER_THAN,
+                    Op.LESS_THAN,
+                    Op.GREATER_THAN_OR_EQUAL_TO,
+                    Op.LESS_THAN_OR_EQUAL_TO,
                     Op.STARTS_WITH,
                     Op.ENDS_WITH,
                     Op.CONTAINS,
