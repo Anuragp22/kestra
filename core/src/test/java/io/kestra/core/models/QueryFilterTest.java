@@ -600,6 +600,16 @@ public class QueryFilterTest {
                 Set.of(
                     Op.EQUALS
                 )
+            ),
+
+            buildQueryFiltersForOperations(
+                Field.TYPE, Resource.BANNER,
+                Set.of(
+                    Op.EQUALS,
+                    Op.NOT_EQUALS,
+                    Op.IN,
+                    Op.NOT_IN
+                )
             )
         ).flatMap(s -> s);
     }
@@ -1413,6 +1423,17 @@ public class QueryFilterTest {
                     Op.ENDS_WITH,
                     Op.CONTAINS,
                     Op.REGEX,
+                    Op.PREFIX
+                )
+            ),
+
+            buildQueryFiltersForOperations(
+                Field.TYPE, Resource.BANNER,
+                Set.of(
+                    Op.GREATER_THAN,
+                    Op.LESS_THAN,
+                    Op.GREATER_THAN_OR_EQUAL_TO,
+                    Op.LESS_THAN_OR_EQUAL_TO,
                     Op.PREFIX
                 )
             )

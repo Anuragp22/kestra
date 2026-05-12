@@ -625,6 +625,12 @@ public record QueryFilter(
             public List<Field> supportedField() {
                 return List.of(Field.KEY);
             }
+        },
+        BANNER {
+            @Override
+            public List<Field> supportedField() {
+                return List.of(Field.TYPE);
+            }
         };
 
         public abstract List<Field> supportedField();
