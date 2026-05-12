@@ -313,6 +313,10 @@ public abstract class AbstractJdbcRepository {
             return nameCondition(value, operation);
         }
 
+        if (field == QueryFilter.Field.SUPERADMIN) {
+            return superAdminCondition(value, operation);
+        }
+
         if (field == QueryFilter.Field.EXPIRATION_DATE) {
             return getDateCondition(value, operation, QueryFilter.Field.EXPIRATION_DATE.name().toLowerCase());
         }
@@ -524,6 +528,10 @@ public abstract class AbstractJdbcRepository {
 
     protected Condition nameCondition(Object value, QueryFilter.Op operation) {
         return defaultHandlers(QueryFilter.Field.NAME, value, operation);
+    }
+
+    protected Condition superAdminCondition(Object value, QueryFilter.Op operation) {
+        throw new InvalidQueryFiltersException("Unsupported field: SUPERADMIN");
     }
 
     protected Condition typeCondition(Object value, QueryFilter.Op operation) {

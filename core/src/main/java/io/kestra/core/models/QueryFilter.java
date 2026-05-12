@@ -370,6 +370,12 @@ public record QueryFilter(
             public List<Op> supportedOp() {
                 return List.of(Op.GREATER_THAN_OR_EQUAL_TO, Op.GREATER_THAN, Op.LESS_THAN_OR_EQUAL_TO, Op.LESS_THAN, Op.EQUALS, Op.NOT_EQUALS);
             }
+        },
+        SUPERADMIN("superAdmin") {
+            @Override
+            public List<Op> supportedOp() {
+                return List.of(Op.EQUALS);
+            }
         };
 
         private static final Map<String, Field> BY_VALUE = Arrays.stream(values())
@@ -454,7 +460,7 @@ public record QueryFilter(
         USER {
             @Override
             public List<Field> supportedField() {
-                return List.of(Field.QUERY, Field.USERNAME, Field.GROUP, Field.NAME);
+                return List.of(Field.QUERY, Field.USERNAME, Field.GROUP, Field.NAME, Field.SUPERADMIN);
             }
         },
         ROLE {
