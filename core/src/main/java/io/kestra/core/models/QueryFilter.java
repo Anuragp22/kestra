@@ -335,6 +335,12 @@ public record QueryFilter(
                 return List.of(Op.EQUALS);
             }
         },
+        KEY("key") {
+            @Override
+            public List<Op> supportedOp() {
+                return List.of(Op.EQUALS);
+            }
+        },
         GROUP("groupList") {
             @Override
             public List<Op> supportedOp() {
@@ -612,6 +618,12 @@ public record QueryFilter(
             @Override
             public List<Field> supportedField() {
                 return List.of(Field.QUERY, Field.TAGS, Field.NAMESPACE, Field.FLOW_ID);
+            }
+        },
+        WORKER_GROUP {
+            @Override
+            public List<Field> supportedField() {
+                return List.of(Field.KEY);
             }
         };
 
