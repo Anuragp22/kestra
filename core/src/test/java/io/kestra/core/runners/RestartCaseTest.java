@@ -149,7 +149,6 @@ public class RestartCaseTest {
 
         // wait
         Execution restartedExec = executionService.replay(firstExecution, flow, null, null, Optional.empty());
-        executionQueue.emit(restartedExec);
 
         assertThat(restartedExec.getState().getCurrent()).isEqualTo(Type.CREATED);
         assertThat(restartedExec.getState().getHistories()).hasSize(1);
@@ -178,7 +177,6 @@ public class RestartCaseTest {
 
         // wait
         Execution restartedExec = executionService.replay(firstExecution, flow, firstExecution.findTaskRunsByTaskId("log").getFirst().getId(), null, Optional.empty());
-        executionQueue.emit(restartedExec);
 
         assertThat(restartedExec.getState().getCurrent()).isEqualTo(State.Type.RESTARTED);
         assertThat(restartedExec.getState().getHistories()).hasSize(4);
@@ -209,7 +207,6 @@ public class RestartCaseTest {
 
         // wait
         Execution restartedExec = executionService.replay(firstExecution, flow, firstExecution.findTaskRunByTaskIdAndValue("2_end", List.of()).getId(), null, Optional.empty());
-        executionQueue.emit(restartedExec);
 
         assertThat(restartedExec.getState().getCurrent()).isEqualTo(State.Type.RESTARTED);
         assertThat(restartedExec.getState().getHistories()).hasSize(4);
