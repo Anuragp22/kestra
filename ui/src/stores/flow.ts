@@ -144,12 +144,12 @@ export const useFlowStore = defineStore("flow", () => {
     // The draft flag is metadata about the flow revision, not part of the flow definition,
     // so it travels alongside the request as a query parameter rather than being injected
     // into the YAML source - mirroring how `revision` works.
-    const draftIntent = ref<boolean>(false);
+    const draftIntent = ref<boolean>(false)
 
     async function saveAll(draft?: boolean): Promise<FlowSaveOutcome> {
         // When not specified, preserve the current flow's draft status so that
         // Ctrl+S on a draft flow keeps it a draft rather than silently publishing it.
-        draftIntent.value = draft ?? flow.value?.draft ?? false;
+        draftIntent.value = draft ?? flow.value?.draft ?? false
 
         if (!haveChange.value && !isCreating.value) {
             return (!haveChange.value && !isCreating.value) ? "no_op" : "blocked"
@@ -165,7 +165,7 @@ export const useFlowStore = defineStore("flow", () => {
     }
 
     async function saveAsDraft(): Promise<FlowSaveOutcome> {
-        return saveAll(true);
+        return saveAll(true)
     }
 
     const route = useRoute()
@@ -179,7 +179,7 @@ export const useFlowStore = defineStore("flow", () => {
             return "blocked"
         }
 
-        draftIntent.value = draft;
+        draftIntent.value = draft
         const source = flowYaml.value
 
         if (source) {
@@ -261,10 +261,10 @@ export const useFlowStore = defineStore("flow", () => {
         if (draftIntent.value) {
             toast.success(
                 t("saved as draft done", {name}),
-                t("saved as draft")
-            );
+                t("saved as draft"),
+            )
         } else {
-            toast.saved(name);
+            toast.saved(name)
         }
     }
 
@@ -493,15 +493,15 @@ export const useFlowStore = defineStore("flow", () => {
     function saveFlow(options: { flow: string }) {
         // For draft saves the YAML may be unparseable; fall back to the currently loaded
         // flow's identity (safe because saveFlow is only called when !isCreating).
-        let namespace: string;
-        let id: string;
+        let namespace: string
+        let id: string
         try {
-            const flowData = YAML_UTILS.parse(options.flow);
-            namespace = flowData.namespace;
-            id = flowData.id;
+            const flowData = YAML_UTILS.parse(options.flow)
+            namespace = flowData.namespace
+            id = flowData.id
         } catch {
-            namespace = flow.value?.namespace ?? "";
-            id = flow.value?.id ?? "";
+            namespace = flow.value?.namespace ?? ""
+            id = flow.value?.id ?? ""
         }
         return axios.put(`${apiUrl()}/flows/${namespace}/${id}`, options.flow, {
             ...textYamlHeader,
@@ -663,7 +663,7 @@ function deleteFlowAndDependencies() {
                 // prevent losing revision when loading graph from source
                 flowVar.revision = flow.value?.revision
                 // draft is server-side metadata not present in YAML - preserve it across graph reloads
-                flowVar.draft = flow.value?.draft;
+                flowVar.draft = flow.value?.draft
                 flow.value = flowVar
 
                 return response

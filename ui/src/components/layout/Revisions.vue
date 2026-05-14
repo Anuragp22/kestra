@@ -74,17 +74,17 @@
                             >
                                 <span>{{ $t("revision") + " " + item.text }}</span>
                                 <span>
-                                    <el-tag v-if="item.isDraft" size="small" type="default">
+                                    <KsTag v-if="item.isDraft" size="small">
                                         <CircleOpacity />
                                         {{ $t('draft') }}
-                                    </el-tag>
+                                    </KsTag>
                                 </span>
                                 <span class="revision-timestamp">
                                     <KsDateAgo :date="item.timestamp" />
                                 </span>
 
                                 <span>
-                                    <el-button
+                                    <KsButton
                                         :icon="TrashCanOutline"
                                         size="small"
                                         @click="onDelete(item.value)"
@@ -93,7 +93,7 @@
                                 </span>
                             </KsOption>
                         </KsSelect>
-                        <KsTag size="large" type="default" v-if="revisionObject(revisionRightIndex)?.draft">
+                        <KsTag size="large" v-if="revisionObject(revisionRightIndex)?.draft">
                             <CircleOpacity />
                             {{ $t('draft') }}
                         </KsTag>
@@ -147,7 +147,7 @@
     import moment from "moment"
 
     import {useToast} from "../../utils/toast"
-    import {useFlowStore} from "../../stores/flow";
+    import {useFlowStore} from "../../stores/flow"
     import CircleOpacity from "vue-material-design-icons/CircleOpacity.vue"
 
     const flowStore = useFlowStore()
@@ -233,7 +233,7 @@
     }
 
     function revisionObject(index: number) {
-        return sortedRevisions.value[index];
+        return sortedRevisions.value[index]
     }
 
     function restoreRevision(index: number, revisionSource: string) {

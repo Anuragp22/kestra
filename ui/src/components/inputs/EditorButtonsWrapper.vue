@@ -141,10 +141,10 @@
 
     async function saveAsDraft() {
         try {
-            const isCreating = flowStore.isCreating;
-            const outcome = await flowStore.saveAsDraft();
+            const isCreating = flowStore.isCreating
+            const outcome = await flowStore.saveAsDraft()
             if (isSuccessfulFlowSaveOutcome(outcome)) {
-                onboardingStore.recordSave();
+                onboardingStore.recordSave()
             }
 
             if (isCreating && outcome === "redirect_to_update") {
@@ -157,14 +157,14 @@
                         tenant: routeParams.value.tenant,
                     },
                     query: route.query,
-                });
+                })
             }
 
-            onSaveAll?.();
+            onSaveAll?.()
         } catch (error: any) {
             if (error?.status === 401) {
-                toast.error("401 Unauthorized", undefined, {duration: 2000});
-                return;
+                toast.error("401 Unauthorized", undefined, {duration: 2000})
+                return
             }
         }
     }

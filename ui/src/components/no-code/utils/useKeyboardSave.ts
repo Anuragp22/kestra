@@ -9,7 +9,7 @@ export function useKeyboardSave() {
             e.preventDefault()
             // Ctrl+S follows the user's default save action preference (Save vs Save as draft),
             // matching what the split-button dropdown shows.
-            const draft = localStorage.getItem(storageKeys.SAVE_DEFAULT_ACTION) === saveDefaultActions.SAVE_AS_DRAFT;
+            const draft = localStorage.getItem(storageKeys.SAVE_DEFAULT_ACTION) === saveDefaultActions.SAVE_AS_DRAFT
             flowStore.save(draft)
         }
     }

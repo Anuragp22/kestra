@@ -2,16 +2,13 @@
     <NavBar :breadcrumb="routeInfo.breadcrumb" :title="routeInfo.title">
         <template #title>
             <template v-if="isDeleted">
-                <Alert class="text-warning me-2" />{{ $t('deleted_label') }}:&nbsp;
+                <Alert class="text-warning me-2" />{{ $t('deleted_label') }}
             </template>
             <Lock v-else-if="!isAllowedToEdit" class="me-2 gray-700" />
             <span :class="{'body-color': isDeleted}">
                 {{ routeInfo.title }}
                 <Badge v-if="routeInfo.beta" label="Beta" />
-                <el-tag type="default" v-if="isDraft">
-                    <CircleOpacity />
-                    {{ $t('draft') }}
-                </el-tag>
+                <Badge v-if="isDraft" :label="$t('draft')" />
             </span>
         </template>
         <template #actions>
@@ -31,7 +28,6 @@
     import action from "../../models/action"
     import {useAuthStore} from "override/stores/auth"
     import {useFlowStore} from "../../stores/flow"
-    import CircleOpacity from "vue-material-design-icons/CircleOpacity.vue"
 
     defineProps<{
         routeInfo: {

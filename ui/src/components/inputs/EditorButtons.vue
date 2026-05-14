@@ -42,7 +42,7 @@
             this is the onboarding "execute" entry point and is not affected by the default
             save preference.
         -->
-        <el-button
+        <KsButton
             v-if="showSaveAndExecute && (isNamespace || isAllowedEdit)"
             :icon="ContentSave"
             @click="forwardEvent('save-and-execute', $event)"
@@ -56,7 +56,7 @@
             id="execute-button"
         >
             {{ $t("save_and_execute") }}
-        </el-button>
+        </KsButton>
 
         <!--
             Regular save: a split-button dropdown.
@@ -66,7 +66,7 @@
               default - it updates the main button label and persists the preference, but
               does NOT trigger the action; the user has to click the main button to execute.
         -->
-        <el-dropdown
+        <KsDropdown
             v-else-if="isNamespace || isAllowedEdit"
             splitButton
             :type="playgroundStore.enabled ? undefined : 'primary'"
@@ -81,8 +81,8 @@
             <component :is="currentActionMeta.icon" class="me-1" />
             {{ $t(currentActionMeta.labelKey) }}
             <template #dropdown>
-                <el-dropdown-menu>
-                    <el-dropdown-item
+                <KsDropdownMenu>
+                    <KsDropdownItem
                         v-for="opt in saveActionOptions"
                         :key="opt.value"
                         :command="opt.value"
@@ -90,10 +90,10 @@
                     >
                         <component :is="opt.icon" class="me-2" />
                         {{ $t(opt.labelKey) }}
-                    </el-dropdown-item>
-                </el-dropdown-menu>
+                    </KsDropdownItem>
+                </KsDropdownMenu>
             </template>
-        </el-dropdown>
+        </KsDropdown>
     </div>
 </template>
 <script setup lang="ts">
@@ -137,15 +137,15 @@
 
     const canSave = computed(() => {
         return props.haveChange || props.isCreating
-    });
+    })
 
     // Drafts can be saved even when the flow has errors; only regular Save requires a valid flow.
     const isMainButtonDisabled = computed(() => {
         if (currentAction.value === saveDefaultActions.SAVE_AS_DRAFT) {
-            return !canSave.value;
+            return !canSave.value
         }
-        return hasErrors.value || !canSave.value;
-    });
+        return hasErrors.value || !canSave.value
+    })
 
     type SaveAction = typeof saveDefaultActions[keyof typeof saveDefaultActions];
 
@@ -157,28 +157,28 @@
     }> = [
         {value: saveDefaultActions.SAVE, labelKey: "save", icon: ContentSave, event: "save"},
         {value: saveDefaultActions.SAVE_AS_DRAFT, labelKey: "save_as_draft", icon: FileDocumentEditOutline, event: "save-as-draft"},
-    ];
+    ]
 
     function readDefault(): SaveAction {
-        const stored = localStorage.getItem(storageKeys.SAVE_DEFAULT_ACTION) as SaveAction | null;
-        return saveActionOptions.some(o => o.value === stored) ? (stored as SaveAction) : saveDefaultActions.SAVE;
+        const stored = localStorage.getItem(storageKeys.SAVE_DEFAULT_ACTION) as SaveAction | null
+        return saveActionOptions.some(o => o.value === stored) ? (stored as SaveAction) : saveDefaultActions.SAVE
     }
 
-    const currentAction = ref<SaveAction>(readDefault());
+    const currentAction = ref<SaveAction>(readDefault())
 
     const currentActionMeta = computed(() =>
-        saveActionOptions.find(o => o.value === currentAction.value) ?? saveActionOptions[0]
-    );
+        saveActionOptions.find(o => o.value === currentAction.value) ?? saveActionOptions[0],
+    )
 
     function onMainSaveClick(event: MouseEvent) {
-        if (isMainButtonDisabled.value) return;
-        forwardEvent(currentActionMeta.value.event, event);
+        if (isMainButtonDisabled.value) return
+        forwardEvent(currentActionMeta.value.event, event)
     }
 
     function onDropdownCommand(command: SaveAction) {
         // Selecting a menu item only switches the default for the current session - it does NOT
         // trigger the action. The persistent default is managed from the settings page.
-        currentAction.value = command;
+        currentAction.value = command
     }
 </script>
 

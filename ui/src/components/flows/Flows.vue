@@ -100,11 +100,11 @@
                             >
                                 {{ FILTERS.invisibleSpace(scope.row.id) }}
                             </router-link>
-                            <el-tag size="small" type="default" v-if="scope.row.draft" class="me-1">
-                                            <CircleOpacity />
-                                            {{ $t('draft') }}
-                                        </el-tag>
-                                        <MarkdownTooltip
+                            <KsTag size="small" v-if="scope.row.draft" class="me-1" plain>
+                                <CircleOpacity />
+                                {{ $t('draft') }}
+                            </KsTag>
+                            <MarkdownTooltip
                                 :id="scope.row.namespace +
                                     '-' +
                                     scope.row.id
