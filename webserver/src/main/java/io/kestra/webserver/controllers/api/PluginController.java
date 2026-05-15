@@ -15,6 +15,8 @@ import io.kestra.core.models.triggers.AbstractTrigger;
 import io.kestra.core.models.ui.PluginUiManifest;
 import io.kestra.core.models.ui.PluginUiModuleWithGroup;
 import io.kestra.core.models.ui.TaskWithVersion;
+import io.kestra.core.plugins.PluginArtifact;
+import io.kestra.core.plugins.PluginManager;
 import io.kestra.core.plugins.PluginRegistry;
 import io.kestra.core.plugins.RegisteredPlugin;
 import io.kestra.core.repositories.ArrayListTotal;
@@ -41,7 +43,9 @@ import io.micronaut.scheduling.TaskExecutors;
 import io.micronaut.scheduling.annotation.ExecuteOn;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.inject.Inject;
+import jakarta.validation.Valid;
 
 import static io.kestra.core.models.Plugin.isDeprecated;
 import static io.kestra.core.models.Plugin.isInternal;
@@ -60,6 +64,9 @@ public class PluginController {
     @Inject
     protected JsonSchemaCache jsonSchemaCache;
 
+    @Inject
+    protected PluginManager pluginManager;
+
     @Get(uri = "schemas/{type}")
     @ExecuteOn(TaskExecutors.IO)
     @Operation(
@@ -73,6 +80,23 @@ public class PluginController {
         return HttpResponse.ok()
             .body(jsonSchemaCache.getSchemaForType(type, arrayOf))
             .header(HttpHeaders.CACHE_CONTROL, CACHE_DIRECTIVE);
+    }
+
+    @Post(uri = "install")
+    @ExecuteOn(TaskExecutors.IO)
+    @Operation(
+        tags = { "Plugins" },
+        summary = "Install plugin artifacts",
+        description = "Downloads and installs the specified plugin artifacts from the configured Maven " +
+            "repository and refreshes the JSON schema. In distributed (EE) deployments the installation " +
+            "is propagated cluster-wide via the internal-storage sync mechanism."
+    )
+    @ApiResponse(responseCode = "200", description = "Artifacts successfully installed")
+    public HttpResponse<List<PluginArtifact>> installPlugins(
+        @Valid @Body List<PluginArtifact> artifacts) {
+        List<PluginArtifact> installed = pluginManager.install(artifacts, List.of(), true, null);
+        jsonSchemaCache.clear();
+        return HttpResponse.ok(installed);
     }
 
     @Get(uri = "properties/{type}")

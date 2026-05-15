@@ -211,7 +211,8 @@ public class PluginCatalogService {
                         (String) plugin.get("title"),
                         icon,
                         groupId,
-                        artifactId
+                        artifactId,
+                        (String) plugin.get("group")
                     );
                 })
                 .sorted(Comparator.comparing(PluginManifest::title))
@@ -253,7 +254,8 @@ public class PluginCatalogService {
         String title,
         String icon,
         String groupId,
-        String artifactId) {
+        String artifactId,
+        String group) {
 
         @Override
         public String toString() {
