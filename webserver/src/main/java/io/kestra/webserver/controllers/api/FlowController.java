@@ -30,7 +30,6 @@ import io.kestra.core.queues.QueueException;
 import io.kestra.core.repositories.FlowRepositoryInterface;
 import io.kestra.core.serializers.JacksonMapper;
 import io.kestra.core.serializers.YamlParser;
-import io.kestra.core.plugins.PluginAutoInstallService;
 import io.kestra.core.services.FlowService;
 import io.kestra.core.services.GraphService;
 import io.kestra.core.services.PluginDefaultService;
@@ -101,9 +100,6 @@ public class FlowController {
 
     @Inject
     private ExpressionContextService expressionContextService;
-
-    @Inject
-    protected PluginAutoInstallService pluginAutoInstallService;
 
     @ExecuteOn(TaskExecutors.IO)
     @Get(uri = "{namespace}/{id}/graph")
@@ -272,7 +268,6 @@ public class FlowController {
     @Operation(tags = { "Flows" }, summary = "Create a flow from yaml source")
     public HttpResponse<FlowWithSource> createFlow(
         @RequestBody(description = "The flow source code") @Body String flow) throws ConstraintViolationException {
-        pluginAutoInstallService.installMissingPlugins(flow);
         return HttpResponse.ok(doCreate(parseFlowSource(flow)));
     }
 
@@ -429,7 +424,6 @@ public class FlowController {
         @Parameter(description = "The flow namespace") @PathVariable String namespace,
         @Parameter(description = "The flow id") @PathVariable String id,
         @RequestBody(description = "The flow source code") @Body String source) throws ConstraintViolationException, FlowProcessingException, QueueException {
-        pluginAutoInstallService.installMissingPlugins(source);
         final String tenantId = tenantService.resolveTenant();
         Optional<Flow> existingFlow = flowRepository.findById(tenantId, namespace, id);
 

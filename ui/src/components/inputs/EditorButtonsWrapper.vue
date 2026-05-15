@@ -43,18 +43,21 @@
 </script>
 
 <script setup lang="ts">
-    import {computed, inject, InjectionKey} from "vue"
+    import {computed, h, inject, InjectionKey} from "vue"
     import {useRouter, useRoute} from "vue-router"
     import {useI18n} from "vue-i18n"
     import EditorButtons from "./EditorButtons.vue"
     import FlowPlaygroundToggle from "./FlowPlaygroundToggle.vue"
     import ValidationError from "../flows/ValidationError.vue"
+    import PluginInstallToast from "../plugins/PluginInstallToast.vue"
 
     import * as localUtils from "../../utils/utils"
     import {isSuccessfulFlowSaveOutcome, useFlowStore} from "../../stores/flow"
     import {useOnboardingV2Store} from "../../stores/onboardingV2"
     import {useExecutionsStore} from "../../stores/executions"
+    import {usePluginsStore} from "../../stores/plugins"
     import {useToast} from "../../utils/toast"
+    import {KsNotification} from "@kestra-io/design-system"
 
     defineProps<{
         haveChange: boolean;
@@ -75,6 +78,7 @@
     const flowStore = useFlowStore()
     const executionsStore = useExecutionsStore()
     const onboardingStore = useOnboardingV2Store()
+    const pluginsStore = usePluginsStore()
     const router = useRouter()
     const route = useRoute()
     const routeParams = computed(() => route.params)
@@ -106,8 +110,55 @@
 
     const onSaveAll = inject(FILES_SAVE_ALL_INJECTION_KEY)
 
+    /**
+     * Detects missing plugins for the current flow YAML and, if any are found, enqueues an
+     * async installation job and opens a live-progress notification toast. Returns immediately
+     * — the install runs in the background so the flow save is not blocked.
+     */
+    async function triggerPluginInstallIfNeeded(): Promise<void> {
+        const yaml = flowStore.flowYaml
+        if (!yaml) return
+
+        let detection
+        try {
+            detection = await pluginsStore.detectMissingPlugins(yaml)
+        } catch {
+            return
+        }
+
+        if (!detection.enabled || detection.artifacts.length === 0) return
+
+        let job
+        try {
+            job = await pluginsStore.startInstall(detection.artifacts)
+        } catch {
+            toast.error(t("plugins.autoInstall.failed"))
+            return
+        }
+
+        const count = detection.artifacts.length
+        let notificationHandle: ReturnType<typeof KsNotification> | undefined
+
+        notificationHandle = KsNotification({
+            title: t("plugins.autoInstall.title", count),
+            message: h(PluginInstallToast, {
+                jobId: job.id,
+                onSuccess: () => {
+                    pluginsStore.list()
+                    setTimeout(() => notificationHandle?.close(), 3000)
+                },
+            }),
+            position: "bottom-right",
+            type: "info",
+            duration: 0,
+        })
+    }
+
     async function save(){
         try {
+            // Fire plugin install in background — does not block the save.
+            void triggerPluginInstallIfNeeded()
+
             // Save the isCreating before saving.
             // saveAll can change its value.
             const isCreating = flowStore.isCreating
@@ -140,6 +191,9 @@
 
     async function saveAndExecute() {
         try {
+            // Fire plugin install in background — does not block the save.
+            void triggerPluginInstallIfNeeded()
+
             const isCreating = flowStore.isCreating
             const outcome = await flowStore.saveAll()
             const hasInputs = Array.isArray(flowStore.flowParsed?.inputs) && flowStore.flowParsed.inputs.length > 0
