@@ -14,6 +14,7 @@ import {InputType} from "../utils/inputs"
 import {globalI18n} from "../translations/i18n"
 import {transformResponse} from "../components/dependencies/composables/useDependencies"
 import {useAuthStore} from "override/stores/auth"
+import {useMiscStore} from "override/stores/misc"
 import {useRoute} from "vue-router"
 import {useClient} from "@kestra-io/kestra-sdk"
 import {defaultNamespace} from "../composables/useNamespaces"
@@ -837,6 +838,7 @@ function deleteFlowAndDependencies() {
     }
 
     const authStore = useAuthStore()
+    const miscStore = useMiscStore()
 
     const isAllowedEdit = computed((): boolean => {
         if (!flow.value || !authStore.user) {
@@ -875,8 +877,14 @@ function deleteFlowAndDependencies() {
                 ? [`${t(key + ".description")} ${t(key + ".details")}`]
                 : []
 
-        const constraintsError =
+        let constraintsError =
             flowValidation.value?.constraints?.split(/, ?/) ?? []
+
+        // When auto-install is enabled, "Invalid type" errors must not block save —
+        // the backend will install the missing plugin transparently on save.
+        if (miscStore.configs?.isPluginAutoInstallEnabled === true) {
+            constraintsError = constraintsError.filter(e => !e.startsWith("Invalid type:"))
+        }
 
         const errors = [...flowExistsError, ...constraintsError]
 

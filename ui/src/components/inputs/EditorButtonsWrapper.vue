@@ -5,7 +5,7 @@
         <ValidationError
             class="validation"
             tooltipPlacement="bottom-start"
-            :errors="blockingErrors"
+            :errors="flowStore.flowErrors"
             :warnings="flowWarnings"
             :infos="flowStore.flowInfos"
         />
@@ -17,7 +17,7 @@
             :isAllowedEdit="flowStore.isAllowedEdit"
             :haveChange="haveChange"
             :flowHaveTasks="Boolean(flowStore.flowHaveTasks)"
-            :errors="blockingErrors"
+            :errors="flowStore.flowErrors"
             :warnings="flowWarnings"
             :showSaveAndExecute="showSaveAndExecute"
             @save="save"
@@ -85,21 +85,13 @@
 
     const toast = useToast()
 
-    // When plugin auto-install is enabled, "Invalid type" constraints must not block save —
-    // the backend will auto-install the missing plugin on save.
-    const isAutoInstallEnabled = computed(() => miscStore.configs?.isPluginAutoInstallEnabled === true)
-
-    const invalidTypeErrors = computed(() =>
-        isAutoInstallEnabled.value
-            ? (flowStore.flowErrors?.filter((e: string) => e.startsWith("Invalid type:")) ?? [])
-            : [],
-    )
-
-    const blockingErrors = computed(() =>
-        isAutoInstallEnabled.value
-            ? flowStore.flowErrors?.filter((e: string) => !e.startsWith("Invalid type:"))
-            : flowStore.flowErrors,
-    )
+    // "Invalid type" constraints filtered from flowStore.flowErrors when auto-install is on;
+    // surface them here as warnings so the user still sees them (just non-blocking).
+    const invalidTypeWarnings = computed(() => {
+        if (miscStore.configs?.isPluginAutoInstallEnabled !== true) return []
+        const allConstraints = flowStore.flowValidation?.constraints?.split(/, ?/) ?? []
+        return allConstraints.filter((e: string) => e.startsWith("Invalid type:"))
+    })
 
     const flowWarnings = computed(() => {
         const outdatedWarning =
@@ -118,7 +110,7 @@
             ...outdatedWarning,
             ...deprecationWarnings,
             ...otherWarnings,
-            ...invalidTypeErrors.value,
+            ...invalidTypeWarnings.value,
         ]
 
         return warnings.length === 0 ? undefined : warnings
