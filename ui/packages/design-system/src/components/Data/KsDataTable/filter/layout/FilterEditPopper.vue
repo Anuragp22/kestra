@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-    import {computed, onMounted, reactive, inject} from "vue"
+    import {computed, onMounted, reactive, inject, watch} from "vue"
     import {useI18n} from "vue-i18n"
     import {
         type AppliedFilter,
@@ -144,12 +144,12 @@
                 },
                 events: {
                     "update:modelValue": (value: string) => (state.selectValue = value),
-                    "update:time-range-mode": (value: "predefined" | "custom") =>
+                    "update:timeRangeMode": (value: "predefined" | "custom") =>
                         (state.timeRangeMode = value),
-                    "update:start-date-value": (value: Date | null) =>
+                    "update:startDateValue": (value: Date | null) =>
                         (state.startDateValue = value),
-                    "update:end-date-value": (value: Date | null) => (state.endDateValue = value),
-                    "update:date-filter-mode": (value: string) => (state.dateFilterMode = value),
+                    "update:endDateValue": (value: Date | null) => (state.endDateValue = value),
+                    "update:dateFilterMode": (value: string) => (state.dateFilterMode = value),
                 },
             },
             text: {
@@ -406,7 +406,8 @@
     const loadValueOptions = async () => {
         if (!props.filterKey?.valueProvider) return
 
-        state.valueOptions = await props.filterKey.valueProvider()
+        const meta = state.dateFilterMode ? {dateFilter: state.dateFilterMode} : undefined
+        state.valueOptions = await props.filterKey.valueProvider(meta)
 
         if (
             props.filterKey?.key === "timeRange" &&
@@ -434,4 +435,13 @@
     }
 
     onMounted(initializeFilter)
+
+    // When the "Apply to" segmented selector flips, refresh the dropdown options so providers can
+    // vary labels by the chosen date field. Cheap for filters with dateFilterOptions (relative dates
+    // are hardcoded); skipped entirely for filters without dateFilterOptions since dateFilterMode
+    // never changes there.
+    watch(
+        () => state.dateFilterMode,
+        () => loadValueOptions(),
+    )
 </script>

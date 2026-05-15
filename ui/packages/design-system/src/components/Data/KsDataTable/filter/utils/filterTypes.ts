@@ -17,13 +17,23 @@ export enum Comparators {
 export const KV_COMPARATORS = [Comparators.EQUALS, Comparators.NOT_EQUALS]
 export const TEXT_COMPARATORS = [
     Comparators.CONTAINS,
-    Comparators.ENDS_WITH, 
-    Comparators.STARTS_WITH, 
+    Comparators.ENDS_WITH,
+    Comparators.STARTS_WITH,
 ]
 
 export interface DateFilterOption {
     value: string;
     label: string;
+}
+
+/**
+ * Extra metadata attached to an applied filter. Currently only carries the value selected from
+ * {@link FilterKeyConfig.dateFilterOptions} for timeRange-like filters that target different date
+ * fields (e.g. "Last triggered" vs "Next execution"). Add new optional keys here as more
+ * meta-driven filters appear.
+ */
+export interface FilterMeta {
+    dateFilter?: string;
 }
 
 export interface FilterKeyConfig {
@@ -33,14 +43,14 @@ export interface FilterKeyConfig {
     searchable?: boolean;
     comparators: Comparators[];
     showComparatorSelection?: boolean;
-    valueProvider?: () => Promise<FilterValue[]>;
+    valueProvider?: (meta?: FilterMeta) => Promise<FilterValue[]>;
     valueType: "text" | "select" | "date" | "multi-select" | "key-value" | "radio";
     visibleByDefault?: boolean;
     defaultValue?: AppliedFilter["value"] | (() => AppliedFilter["value"]);
     /** When set, renders an "Apply to" segmented selector inside the timeRange popover. */
     dateFilterOptions?: DateFilterOption[];
     /** Overrides the chip's keyLabel based on the active dateFilter meta value. */
-    keyLabelProvider?: (meta?: Record<string, string>) => string;
+    keyLabelProvider?: (meta?: FilterMeta) => string;
 }
 
 export interface FilterValue {
@@ -59,8 +69,8 @@ export interface AppliedFilter {
     comparator: Comparators;
     comparatorLabel: string;
     value: string | string[] | Date | {startDate: Date; endDate: Date};
-    /** Extra key-value metadata (e.g. dateFilter for timeRange filters). */
-    meta?: Record<string, string>;
+    /** Extra metadata (e.g. dateFilter for timeRange filters). See {@link FilterMeta}. */
+    meta?: FilterMeta;
 }
 
 export interface SavedFilter {
@@ -87,17 +97,17 @@ export interface TableProperties {
 }
 
 export interface TableOptions {
-    chart?: { 
-        shown?: boolean; 
-        value?: boolean; 
-        callback?: (value: boolean) => void 
+    chart?: {
+        shown?: boolean;
+        value?: boolean;
+        callback?: (value: boolean) => void
     };
     columns?: {
         shown?: boolean
     };
-    refresh?: { 
-        shown?: boolean; 
-        callback?: () => void 
+    refresh?: {
+        shown?: boolean;
+        callback?: () => void
     };
 }
 

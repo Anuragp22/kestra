@@ -12,6 +12,7 @@ import {
     type AppliedFilter,
     type FilterConfiguration,
     type FilterKeyConfig,
+    type FilterMeta,
     COMPARATOR_LABELS,
     Comparators,
     TEXT_COMPARATORS,
@@ -117,7 +118,7 @@ export function useFilters(
         value: any,
         valueLabel: string,
         idSuffix: string,
-        meta?: Record<string, string>,
+        meta?: FilterMeta,
     ): AppliedFilter => ({
         id: `${key}-${idSuffix}-${Date.now()}`,
         key,
@@ -134,7 +135,7 @@ export function useFilters(
         startDate: Date,
         endDate: Date,
         comparator = Comparators.EQUALS,
-        meta?: Record<string, string>,
+        meta?: FilterMeta,
     ): AppliedFilter => {
         return {
             ...createAppliedFilter(
