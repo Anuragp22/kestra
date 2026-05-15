@@ -22,6 +22,7 @@ import io.kestra.core.plugins.PluginInstallJob;
 import io.kestra.core.plugins.PluginInstallJobRegistry;
 import io.kestra.core.plugins.PluginManager;
 import io.kestra.core.plugins.PluginRegistry;
+import io.kestra.core.plugins.PluginSchemaBundleService;
 import io.kestra.core.plugins.RegisteredPlugin;
 import io.kestra.core.repositories.ArrayListTotal;
 import io.kestra.core.utils.ListUtils;
@@ -78,6 +79,9 @@ public class PluginController {
     @Inject
     protected PluginInstallJobRegistry pluginInstallJobRegistry;
 
+    @Inject
+    protected PluginSchemaBundleService pluginSchemaBundleService;
+
     @Get(uri = "schemas/{type}")
     @ExecuteOn(TaskExecutors.IO)
     @Operation(
@@ -87,9 +91,17 @@ public class PluginController {
     )
     public HttpResponse<Map<String, Object>> getSchemasFromType(
         @Parameter(description = "The schema needed") @PathVariable SchemaType type,
-        @Parameter(description = "If schema should be an array of requested type") @Nullable @QueryValue(value = "arrayOf", defaultValue = "false") Boolean arrayOf) {
+        @Parameter(description = "If schema should be an array of requested type") @Nullable @QueryValue(value = "arrayOf", defaultValue = "false") Boolean arrayOf,
+        @Parameter(description = "Whether to merge the pre-baked plugin schema bundle for un-installed types") @Nullable @QueryValue(value = "includeCatalog", defaultValue = "false") Boolean includeCatalog) {
+
+        Map<String, Object> schema = jsonSchemaCache.getSchemaForType(type, arrayOf);
+
+        if (Boolean.TRUE.equals(includeCatalog)) {
+            schema = pluginSchemaBundleService.mergeWithBundle(type, schema);
+        }
+
         return HttpResponse.ok()
-            .body(jsonSchemaCache.getSchemaForType(type, arrayOf))
+            .body(schema)
             .header(HttpHeaders.CACHE_CONTROL, CACHE_DIRECTIVE);
     }
 
