@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import io.kestra.core.executor.command.Create;
 import org.slf4j.event.Level;
 
 import io.kestra.core.contexts.KestraContext;
@@ -363,7 +364,29 @@ public class DefaultExecutor extends AbstractService implements Executor {
             }
         }
 
-        Optional<ExecutorContext> maybeExecutor = executionCommandMessageHandler.handle(message);
+        Optional<ExecutorContext> maybeExecutor;
+        if(message instanceof Create) {
+            var createCommand = (Create) message;
+            var flow = flowMetaStore
+                .findById(createCommand.tenantId(), createCommand.namespace(), createCommand.flowId(), Optional.ofNullable(createCommand.flowRevision()))
+                .orElseThrow(() -> new FlowNotFoundException(createCommand.executionFullId(), createCommand.flowRevision()));
+
+            var newExecution = executionService.create(createCommand, flow);
+
+            try {
+                // we create the execution even if skipped, so it is at least present in the DB
+                executionStateStore.create(newExecution);
+            } catch (Exception e) {
+                log.error("Unable to create execution {}", newExecution.getId(), e);
+            }
+
+            var eventType = newExecution.getState().isCreated() ? ExecutionEventType.CREATED : ExecutionEventType.UPDATED;
+            var createExecutionEvent = new ExecutionEvent(newExecution, eventType);
+            maybeExecutor = executionEventMessageHandler.handle(createExecutionEvent);
+        } else {
+            maybeExecutor = executionCommandMessageHandler.handle(message);
+        }
+
         maybeExecutor.ifPresent(this::toExecution);
     }
 

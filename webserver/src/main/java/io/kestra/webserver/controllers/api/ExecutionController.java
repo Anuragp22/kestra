@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZonedDateTime;
+import java.time.chrono.ChronoZonedDateTime;
 import java.util.*;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -683,12 +684,13 @@ public class ExecutionController {
         @Parameter(description = "Specific execution kind") @QueryValue Optional<ExecutionKind> kind) {
         Flow flow = flowService.getFlowIfExecutableOrThrow(tenantService.resolveTenant(), namespace, id, revision);
         List<Label> parsedLabels = parseLabels(labels);
-        final Execution current = Execution.newExecution(flow, null, parsedLabels, scheduleDate).toBuilder()
+
+
+        final Execution dummyExecutionOnlyForInputs = Execution.newExecution(flow, null, parsedLabels, scheduleDate).toBuilder()
             .kind(kind.orElse(null))
             .breakpoints(breakpoints.map(s -> Arrays.stream(s.split(",")).map(Breakpoint::of).toList()).orElse(null))
-            .build();
-
-        return flowInputOutput.readExecutionInputs(flow, current, inputs)
+            .build();// TODO create a flowInputOutput.readExecutionInputs method that does not take a full execution as parameter
+        return flowInputOutput.readExecutionInputs(flow, dummyExecutionOnlyForInputs, inputs)
             .flatMap(executionInputs ->
             {
                 List<Check> failed = flowService.getFailedChecks(flow, executionInputs);
@@ -704,72 +706,83 @@ public class ExecutionController {
                     );
                 }
 
-                final Execution executionWithInputs = Optional.of(current.withInputs(executionInputs))
-                    .map(exec ->
-                    {
-                        if (Check.Behavior.FAIL_EXECUTION.equals(behavior)) {
-                            Logs.logExecution(current, log, Level.WARN, "Flow execution failed because one or more condition checks evaluated to false.");
-                            return exec.withState(State.Type.FAILED);
-                        } else {
-                            return exec;
-                        }
-                    })
-                    .get();
+                var executionId = IdUtils.create();
+                Create createCommand = Create.of(new ExecutionId(flow.getTenantId(), flow.getNamespace(), flow.getId(), executionId))
+                    .withLabels(parsedLabels)
+                    .withInputs(executionInputs)
+                    .withScheduleDate(scheduleDate.map(ChronoZonedDateTime::toInstant).orElse(null))
+                    .withKind(kind.orElse(null))
+                    .withBreakpoints(breakpoints.map(s -> Arrays.stream(s.split(",")).map(Breakpoint::of).toList()).orElse(null));
 
-                try {
+                    if (Check.Behavior.FAIL_EXECUTION.equals(behavior)) {
+                        Logs.logExecutionId(createCommand.executionFullId(), log, Level.WARN, "Flow execution failed because one or more condition checks evaluated to false.");
+                        createCommand = createCommand.withStateType(State.Type.FAILED);
+                    }
+
                     // inject the traceparent into the execution
                     openTelemetry
                         .map(OpenTelemetry::getPropagators)
                         .map(ContextPropagators::getTextMapPropagator)
-                        .ifPresent(propagator -> propagator.inject(Context.current(), executionWithInputs, ExecutionTextMapSetter.INSTANCE));
+                        .ifPresent(propagator -> propagator.inject(Context.current(), dummyExecutionOnlyForInputs, ExecutionTextMapSetter.INSTANCE));
 
-                    executionQueue.emit(executionWithInputs);
-                    eventPublisher.publishEvent(CrudEvent.create(executionWithInputs));
+                    Create finalCreateCommand = createCommand;
+                    return awaitBlockingAction(
+                        executionId, "Create",
+                        operationId -> executionCommandQueue.emit(finalCreateCommand.withOperationId(operationId))
+                    ).flatMap(res -> {
+                        var executionUrl = executionUrl(finalCreateCommand.executionFullId());
+                        if(res.status().getCode() != 200){
+                            // early return, could not even acknowledge creation command
+                            // FIXME return an error here
+                            return Mono.just(ExecutionResponse.fromExecution(res.body(), executionUrl));
+                        }
 
-                    if (!wait || executionWithInputs.getState().isFailed()) {
-                        return Mono.just(
-                            ExecutionResponse.fromExecution(
-                                executionWithInputs,
-                                executionUrl(executionWithInputs)
+                        if (!wait || finalCreateCommand.stateType().isFailed()) {
+                            return Mono.just(
+                                ExecutionResponse.fromExecution(
+                                    res.body(),
+                                    executionUrl
+                                )
+                            );
+                        }
+
+                        // SSE susbcribe
+                        String subscriberId = UUID.randomUUID().toString();
+                        // Use Flux to wait for completion using the streaming service
+                        return Flux.<Event<Execution>> create(emitter ->
+                            {
+                                streamingService.registerSubscriber(
+                                    executionId,
+                                    subscriberId,
+                                    emitter,
+                                    flow
+                                );
+                            })
+                            .last()
+                            .map(Event::getData)
+                            .map(
+                                execution -> ExecutionResponse.fromExecution(
+                                    execution,
+                                    executionUrl
+                                )
                             )
-                        );
-                    }
+                            .timeout(Duration.ofHours(1)) // avoid idle SSE sockets by setting a between-item timeout
+                            .doFinally(signalType -> streamingService.unregisterSubscriber(executionId, subscriberId));
+                    });
 
-                    String subscriberId = UUID.randomUUID().toString();
-                    // Use Flux to wait for completion using the streaming service
-                    return Flux.<Event<Execution>> create(emitter ->
-                    {
-                        streamingService.registerSubscriber(
-                            executionWithInputs.getId(),
-                            subscriberId,
-                            emitter,
-                            flow
-                        );
-                    })
-                        .last()
-                        .map(Event::getData)
-                        .map(
-                            execution -> ExecutionResponse.fromExecution(
-                                execution,
-                                executionUrl(execution)
-                            )
-                        )
-                        .timeout(Duration.ofHours(1)) // avoid idle SSE sockets by setting a between-item timeout
-                        .doFinally(signalType -> streamingService.unregisterSubscriber(executionWithInputs.getId(), subscriberId));
-                } catch (QueueException e) {
-                    return Mono.error(e);
-                }
+//                    eventPublisher.publishEvent(CrudEvent.create(createCommand)); TODO
+
             });
     }
 
-    private URI executionUrl(Execution execution) {
+    private URI executionUrl(ExecutionId executionId) {
         String baseUrl = Optional.ofNullable(kestraConfiguration.url()).map(url -> url.endsWith("/") ? url.substring(0, url.length() - 1) : url).orElse("");
         return URI.create(
-            baseUrl + "/ui" + (execution.getTenantId() != null ? "/" + execution.getTenantId() : "")
+            baseUrl + "/ui" + (executionId.tenantId() != null ? "/" + executionId.tenantId() : "")
                 + "/executions/"
-                + execution.getNamespace() + "/"
-                + execution.getFlowId() + "/"
-                + execution.getId()
+                + executionId.namespace() + "/"
+                + executionId.flowId() + "/"
+                + executionId.executionId()
         );
     }
 

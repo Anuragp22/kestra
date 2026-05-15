@@ -10,6 +10,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import io.kestra.core.executor.command.Create;
 import org.reactivestreams.Publisher;
 
 import io.kestra.core.debug.Breakpoint;
@@ -182,6 +183,25 @@ public class ExecutionService {
     public Execution pauseFlowable(Execution execution, TaskRun updateFlowableTaskRun) throws InternalException {
 
         return execution.withTaskRun(updateFlowableTaskRun.withState(State.Type.PAUSED)).withState(State.Type.PAUSED);
+    }
+
+    public Execution create(Create createCommand, FlowInterface flow) {
+        var newExecution = Execution.newExecution(
+                flow,
+                (x, y) -> createCommand.inputs(),
+                createCommand.labels(),
+                Optional.empty(),
+                createCommand.kind()
+            ).withScheduleDate(createCommand.scheduleDate())
+            .withState(createCommand.stateType())
+            .withBreakpoints(createCommand.breakpoints())
+            .withFlowRevision(createCommand.flowRevision())
+            .withTrigger(createCommand.trigger());
+
+        /*if (emitEvent) {
+            eventPublisher.publishEvent(CrudEvent.create(newExecution));
+        }*/
+        return newExecution;
     }
 
     public Execution restart(final Execution execution, Flow flow, @Nullable Integer revision) throws Exception {

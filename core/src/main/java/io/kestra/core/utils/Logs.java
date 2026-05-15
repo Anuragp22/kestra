@@ -1,5 +1,6 @@
 package io.kestra.core.utils;
 
+import io.kestra.core.models.executions.ExecutionId;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +41,12 @@ public final class Logs {
 
     public static void logExecution(Execution execution, Logger logger, Level level, String message, Object... args) {
         Object[] executionArgs = new Object[] { execution.getTenantId(), execution.getNamespace(), execution.getFlowId(), execution.getId() };
+        Object[] finalArgs = ArrayUtils.addAll(executionArgs, args);
+        logger.atLevel(level).log(EXECUTION_PREFIX_WITH_TENANT + message, finalArgs);
+    }
+
+    public static void logExecutionId(ExecutionId executionId, Logger logger, Level level, String message, Object... args) {
+        Object[] executionArgs = new Object[] { executionId.tenantId(), executionId.namespace(), executionId.flowId(), executionId.executionId() };
         Object[] finalArgs = ArrayUtils.addAll(executionArgs, args);
         logger.atLevel(level).log(EXECUTION_PREFIX_WITH_TENANT + message, finalArgs);
     }
