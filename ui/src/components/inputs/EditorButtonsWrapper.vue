@@ -19,6 +19,7 @@
             :flowHaveTasks="Boolean(flowStore.flowHaveTasks)"
             :errors="flowStore.flowErrors"
             :warnings="flowWarnings"
+
             :showSaveAndExecute="showSaveAndExecute"
             @save="save"
             @save-and-execute="saveAndExecute"
@@ -55,7 +56,6 @@
     import {useOnboardingV2Store} from "../../stores/onboardingV2"
     import {useExecutionsStore} from "../../stores/executions"
     import {useToast} from "../../utils/toast"
-    import {useMiscStore} from "override/stores/misc"
 
     defineProps<{
         haveChange: boolean;
@@ -74,7 +74,6 @@
     }
 
     const flowStore = useFlowStore()
-    const miscStore = useMiscStore()
     const executionsStore = useExecutionsStore()
     const onboardingStore = useOnboardingV2Store()
     const router = useRouter()
@@ -84,15 +83,6 @@
     const isSettingsPlaygroundEnabled = computed(() => localStorage.getItem("editorPlayground") !== "false")
 
     const toast = useToast()
-
-    // "Invalid type" constraints filtered from flowStore.flowErrors when auto-install is on;
-    // surface them here as warnings so the user still sees them (just non-blocking).
-    const invalidTypeWarnings = computed(() => {
-        if (miscStore.configs?.isPluginAutoInstallEnabled !== true) return []
-        const allConstraints = flowStore.flowValidation?.constraints?.split(/, ?/) ?? []
-        return allConstraints.filter((e: string) => e.startsWith("Invalid type:"))
-    })
-
     const flowWarnings = computed(() => {
         const outdatedWarning =
             flowStore.flowValidation?.outdated && !flowStore.isCreating
@@ -110,7 +100,6 @@
             ...outdatedWarning,
             ...deprecationWarnings,
             ...otherWarnings,
-            ...invalidTypeWarnings.value,
         ]
 
         return warnings.length === 0 ? undefined : warnings
