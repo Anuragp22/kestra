@@ -195,6 +195,7 @@
     import KsTooltip from "../Feedback/KsTooltip.vue"
     import {STATES} from "../../utils/state"
     import {findDuplicateTaskIds} from "../../utils/yamlValidation"
+    import {isPebbleEnabled} from "../../utils/pebbleBlock"
     import PlaceholderContentWidget from "../../composables/PlaceholderContentWidget"
 
     type ICodeEditor = monacoEditorNs.ICodeEditor
@@ -314,11 +315,11 @@
 
     const isFlowYamlEditor = computed(() => props.lang === "yaml" && props.schemaType === "flow")
 
-    const pebbleEnabled = computed(() => {
-        if (props.pebble !== undefined) return props.pebble
-        if (props.lang === "yaml-pebble") return true
-        return ["flow", "dashboard", "app", "testsuites"].includes(props.schemaType ?? "")
-    })
+    const pebbleEnabled = computed(() => isPebbleEnabled({
+        pebble: props.pebble,
+        lang: props.lang,
+        schemaType: props.schemaType,
+    }))
 
     const duplicateTaskIdsEnabled = computed(() => {
         if (props.duplicateTaskIdMarkers !== undefined) return props.duplicateTaskIdMarkers

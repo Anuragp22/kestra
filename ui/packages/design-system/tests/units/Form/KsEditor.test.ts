@@ -1,5 +1,5 @@
 import {describe, test, expect} from "vitest"
-import {isOffsetInPebbleBlock} from "../../../src/utils/pebbleBlock"
+import {isOffsetInPebbleBlock, isPebbleEnabled, PEBBLE_SCHEMA_TYPES} from "../../../src/utils/pebbleBlock"
 import {findDuplicateTaskIds} from "../../../src/utils/yamlValidation"
 
 describe("KsEditor / pebbleBlock", () => {
@@ -82,5 +82,56 @@ errors:
     test("handles invalid yaml without throwing", () => {
         const yaml = ":::: not yaml ::::"
         expect(() => findDuplicateTaskIds(yaml)).not.toThrow()
+    })
+})
+
+describe("KsEditor / isPebbleEnabled", () => {
+    test("whitelist is exactly {flow, dashboard, app, testsuites}", () => {
+        expect(PEBBLE_SCHEMA_TYPES).toEqual(["flow", "dashboard", "app", "testsuites"])
+    })
+
+    test.each(PEBBLE_SCHEMA_TYPES)("enabled for whitelisted schemaType %s", (s) => {
+        expect(isPebbleEnabled({schemaType: s})).toBe(true)
+    })
+
+    test.each([
+        "section",
+        "task",
+        "trigger",
+        "apps",
+        "App",
+        "FLOW",
+        "",
+        undefined,
+    ])("disabled for non-whitelisted schemaType %s", (s) => {
+        expect(isPebbleEnabled({schemaType: s})).toBe(false)
+    })
+
+    test("explicit pebble=true overrides everything", () => {
+        expect(isPebbleEnabled({pebble: true})).toBe(true)
+        expect(isPebbleEnabled({pebble: true, schemaType: "section"})).toBe(true)
+        expect(isPebbleEnabled({pebble: true, schemaType: "apps"})).toBe(true)
+    })
+
+    test("explicit pebble=false overrides everything", () => {
+        expect(isPebbleEnabled({pebble: false})).toBe(false)
+        expect(isPebbleEnabled({pebble: false, schemaType: "flow"})).toBe(false)
+        expect(isPebbleEnabled({pebble: false, lang: "yaml-pebble"})).toBe(false)
+    })
+
+    test("lang=yaml-pebble forces pebble on", () => {
+        expect(isPebbleEnabled({lang: "yaml-pebble"})).toBe(true)
+        expect(isPebbleEnabled({lang: "yaml-pebble", schemaType: "section"})).toBe(true)
+    })
+
+    test("lang=yaml enables pebble by default (parity with pre-migration Editor.vue)", () => {
+        expect(isPebbleEnabled({lang: "yaml"})).toBe(true)
+        expect(isPebbleEnabled({lang: "yaml", schemaType: "section"})).toBe(true)
+    })
+
+    test("non-yaml langs do not enable pebble", () => {
+        expect(isPebbleEnabled({lang: "json"})).toBe(false)
+        expect(isPebbleEnabled({lang: "python"})).toBe(false)
+        expect(isPebbleEnabled({lang: "plaintext"})).toBe(false)
     })
 })
