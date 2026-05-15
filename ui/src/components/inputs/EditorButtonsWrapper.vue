@@ -5,7 +5,7 @@
         <ValidationError
             class="validation"
             tooltipPlacement="bottom-start"
-            :errors="flowStore.flowErrors"
+            :errors="blockingErrors"
             :warnings="flowWarnings"
             :infos="flowStore.flowInfos"
         />
@@ -17,7 +17,7 @@
             :isAllowedEdit="flowStore.isAllowedEdit"
             :haveChange="haveChange"
             :flowHaveTasks="Boolean(flowStore.flowHaveTasks)"
-            :errors="flowStore.flowErrors"
+            :errors="blockingErrors"
             :warnings="flowWarnings"
             :showSaveAndExecute="showSaveAndExecute"
             @save="save"
@@ -55,6 +55,7 @@
     import {useOnboardingV2Store} from "../../stores/onboardingV2"
     import {useExecutionsStore} from "../../stores/executions"
     import {useToast} from "../../utils/toast"
+    import {useMiscStore} from "override/stores/misc"
 
     defineProps<{
         haveChange: boolean;
@@ -73,6 +74,7 @@
     }
 
     const flowStore = useFlowStore()
+    const miscStore = useMiscStore()
     const executionsStore = useExecutionsStore()
     const onboardingStore = useOnboardingV2Store()
     const router = useRouter()
@@ -82,6 +84,23 @@
     const isSettingsPlaygroundEnabled = computed(() => localStorage.getItem("editorPlayground") !== "false")
 
     const toast = useToast()
+
+    // When plugin auto-install is enabled, "Invalid type" constraints must not block save —
+    // the backend will auto-install the missing plugin on save.
+    const isAutoInstallEnabled = computed(() => miscStore.configs?.isPluginAutoInstallEnabled === true)
+
+    const invalidTypeErrors = computed(() =>
+        isAutoInstallEnabled.value
+            ? (flowStore.flowErrors?.filter((e: string) => e.startsWith("Invalid type:")) ?? [])
+            : [],
+    )
+
+    const blockingErrors = computed(() =>
+        isAutoInstallEnabled.value
+            ? flowStore.flowErrors?.filter((e: string) => !e.startsWith("Invalid type:"))
+            : flowStore.flowErrors,
+    )
+
     const flowWarnings = computed(() => {
         const outdatedWarning =
             flowStore.flowValidation?.outdated && !flowStore.isCreating
@@ -99,6 +118,7 @@
             ...outdatedWarning,
             ...deprecationWarnings,
             ...otherWarnings,
+            ...invalidTypeErrors.value,
         ]
 
         return warnings.length === 0 ? undefined : warnings
