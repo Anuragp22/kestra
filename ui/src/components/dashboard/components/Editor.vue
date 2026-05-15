@@ -52,7 +52,8 @@
     <div class="main-editor" v-else>
         <KsSplitter v-if="displaySide" class="dashboard-edit" @resize="onSplitterResize">
             <KsSplitterPanel :size="editorWidth" min="25%" max="75%">
-                <Editor
+                <KsEditor
+                    v-bind="editorBindings"
                     @save="(allowSaveUnchanged || source !== initialSource) ? $emit('save', $event) : undefined"
                     v-model="source"
                     schemaType="dashboard"
@@ -94,7 +95,8 @@
             </KsSplitterPanel>
         </KsSplitter>
         <div v-else class="editor-only">
-            <Editor
+            <KsEditor
+                v-bind="editorBindings"
                 @save="(allowSaveUnchanged || source !== initialSource) ? $emit('save', $event) : undefined"
                 v-model="source"
                 schemaType="dashboard"
@@ -110,7 +112,8 @@
 </template>
 <script setup lang="ts">
     import {ref, computed, onMounted, onBeforeUnmount} from "vue"
-    import Editor from "../../inputs/Editor.vue"
+    import {KsEditor} from "@kestra-io/design-system"
+    import {useEditorBindings} from "../../../composables/useEditorBindings"
     import PluginDocumentation from "../../plugins/PluginDocumentation.vue"
     import Sections from "../sections/Sections.vue"
     import ValidationErrors from "../../flows/ValidationError.vue"
@@ -138,6 +141,8 @@
 
     const pluginsStore = usePluginsStore()
     const dashboardStore = useDashboardStore()
+
+    const editorBindings = useEditorBindings()
 
     const source = ref(props.initialSource)
     const errors = ref<any>(undefined)

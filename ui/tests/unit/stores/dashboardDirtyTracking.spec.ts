@@ -3,6 +3,11 @@ import {setActivePinia, createPinia} from "pinia"
 import {nextTick} from "vue"
 import {setMockClient} from "@kestra-io/kestra-sdk"
 
+vi.mock("@kestra-io/design-system", async () => {
+    const flowYamlUtils = await import("../../../packages/design-system/src/utils/flowYamlUtils")
+    return {flowYamlUtils}
+})
+
 vi.mock("nprogress", () => ({
     start: vi.fn(),
     done: vi.fn(),

@@ -25,6 +25,8 @@ import IModel = monaco.editor.IModel;
 import ProviderResult = monaco.languages.ProviderResult;
 import CompletionList = monaco.languages.CompletionList;
 import CompletionItem = languages.CompletionItem;
+import CompletionContext = languages.CompletionContext;
+import CancellationToken = monaco.CancellationToken;
 
 type TaskLike = Record<string, unknown>;
 
@@ -132,6 +134,8 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
                     provideCompletionItems: (
                         model: IModel,
                         position: IPosition,
+                        context: CompletionContext,
+                        token: CancellationToken,
                     ) => ProviderResult<CompletionList>;
                 };
             }[]
@@ -149,9 +153,11 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
         yamlCompletion.provider.provideCompletionItems = async function (
             model: IModel,
             position: IPosition,
+            context: CompletionContext,
+            token: CancellationToken,
         ) {
-            const defaultCompletion = await initialCompletion(model, position)
-            if (!defaultCompletion) {
+            const defaultCompletion = await initialCompletion(model, position, context, token)
+            if (!defaultCompletion || token.isCancellationRequested) {
                 return defaultCompletion
             }
 

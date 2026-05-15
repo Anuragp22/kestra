@@ -191,9 +191,10 @@
                     allowCustom
                     @update:model-value="kv.value = $event.timeRange"
                 />
-                <Editor
+                <KsEditor
+                    v-bind="editorBindings"
                     :fullHeight="false"
-                    :input="true"
+                    :inline="true"
                     :navbar="false"
                     v-else-if="kv.type === 'JSON'"
                     lang="json"
@@ -247,11 +248,9 @@
     import ContentSave from "vue-material-design-icons/ContentSave.vue"
     import FileDocumentEdit from "vue-material-design-icons/FileDocumentEdit.vue"
 
-    import {KsId, KsIconButton} from "@kestra-io/design-system"
-    import Editor from "../inputs/Editor.vue"
+    import {KsId, KsIconButton, KsEditor, KsFilter as KSFilter} from "@kestra-io/design-system"
+    import {useEditorBindings} from "../../composables/useEditorBindings"
     import InheritedKVs from "./InheritedKVs.vue"
-
-    import {KsFilter as KSFilter} from "@kestra-io/design-system"
     import TimeSelect from "../executions/date-select/TimeSelect.vue"
     import NamespaceSelect from "../namespaces/components/NamespaceSelect.vue"
     import useRestoreUrl from "../../composables/useRestoreUrl"
@@ -294,6 +293,8 @@
     const authStore = useAuthStore()
     const namespacesStore = useNamespacesStore()
     const kvStore = useKvStore()
+
+    const editorBindings = useEditorBindings()
 
     const loadData = async ({page, size, sort}: {page: number; size: number; sort?: string}) => {
         if (!loadInit.value) return

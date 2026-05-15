@@ -6,7 +6,8 @@
         @generated-yaml="(yaml: string) => { draftSource = yaml }"
     >
         <template #default="{aiCopilotAllowed, aiCopilotOpened, openAiCopilot}">
-            <Editor
+            <KsEditor
+                v-bind="editorBindings"
                 v-model="editorContent"
                 schemaType="dashboard"
                 lang="yaml"
@@ -27,7 +28,7 @@
                 <template #footer-row>
                     <AcceptDecline :visible="hasDraft" @accept="acceptDraft" @reject="declineDraft" />
                 </template>
-            </Editor>
+            </KsEditor>
         </template>
     </AiCopilotWrapper>
 </template>
@@ -35,8 +36,9 @@
 <script lang="ts" setup>
     import {onMounted, ref, computed} from "vue"
     import {useDashboardStore} from "../../../stores/dashboard"
-    import Editor from "../../inputs/Editor.vue"
+    import {KsEditor} from "@kestra-io/design-system"
     import {flowYamlUtils as YAML_UTILS} from "@kestra-io/topology"
+    import {useEditorBindings} from "../../../composables/useEditorBindings"
     import {usePluginsStore} from "../../../stores/plugins"
     import AiCopilotWrapper from "../../ai/AiCopilotWrapper.vue"
     import AITriggerButton from "../../ai/AITriggerButton.vue"
@@ -44,6 +46,8 @@
     import AcceptDecline from "../../inputs/AcceptDecline.vue"
 
     const dashboardStore = useDashboardStore()
+
+    const editorBindings = useEditorBindings()
 
     const pluginsStore = usePluginsStore()
     async function updatePluginDocumentation(event: any) {

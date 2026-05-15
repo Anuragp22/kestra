@@ -65,12 +65,13 @@
             <img v-else-if="!forceEditor && preview.type === 'IMAGE'" :src="imageContent" alt="Image output preview">
             <PdfPreview v-else-if="!forceEditor && preview.type === 'PDF'" :source="preview.content" />
             <KsMarkdown v-else-if="!forceEditor && preview.type === 'MARKDOWN'" :content="preview.content" />
-            <Editor
+            <KsEditor
                 v-else
+                v-bind="editorBindings"
                 :modelValue="!forceEditor ? preview.content : JSON.stringify(preview.content, null, 2)"
                 :lang="!forceEditor ? extensionToMonacoLang : 'json'"
                 readOnly
-                input
+                inline
                 :wordWrap="wordWrap"
                 :fullHeight="false"
                 :navbar="false"
@@ -93,7 +94,7 @@
                         </template>
                     </CopyToClipboard>
                 </template>
-            </Editor>
+            </KsEditor>
         </template>
     </KsDrawer>
 </template>
@@ -103,10 +104,10 @@
     import EyeOutline from "vue-material-design-icons/EyeOutline.vue"
     import Wrap from "vue-material-design-icons/Wrap.vue"
     import CopyToClipboard from "../layout/CopyToClipboard.vue"
-    import Editor from "../inputs/Editor.vue"
+    import {KsMarkdown, KsEditor} from "@kestra-io/design-system"
+    import {useEditorBindings} from "../../composables/useEditorBindings"
     import ListPreview from "../ListPreview.vue"
     import PdfPreview from "../PdfPreview.vue"
-    import {KsMarkdown} from "@kestra-io/design-system"
     import {useMiscStore} from "override/stores/misc"
     import {useExecutionsStore} from "../../stores/executions"
 
@@ -146,6 +147,8 @@
 
     const miscStore = useMiscStore()
     const executionsStore = useExecutionsStore()
+
+    const editorBindings = useEditorBindings()
 
     const encodingOptions: EncodingOption[] = [
         {value: "UTF-8", label: "UTF-8"},
