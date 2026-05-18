@@ -45,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Slf4j
-@KestraTest
+@KestraTest(startRunner = true)
 class ExecutionControllerTest {
     @Inject
     private ExecutionRepositoryInterface executionRepository;
@@ -477,6 +477,7 @@ class ExecutionControllerTest {
     }
 
     @Test
+    @LoadFlows(value = {"flows/valids/inputs.yaml"})
     void shouldValidateInputsForCreateExecutionGivenSimpleInputs() {
         // given
         String namespace = "io.kestra.tests";
