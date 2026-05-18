@@ -186,17 +186,32 @@ public class ExecutionService {
     }
 
     public Execution create(Create createCommand, FlowInterface flow) {
+        // Pre-seed CORRELATION_ID so Execution.newExecution() doesn't assign the auto-generated ID to it.
+        // Without this, newExecution() sets correlationId = auto-id, and then toBuilder().id() overrides
+        // the execution ID while leaving correlationId pointing to the discarded auto-id.
+        List<Label> labels = new ArrayList<>(ListUtils.emptyOnNull(createCommand.labels()));
+        if (labels.stream().noneMatch(l -> Label.CORRELATION_ID.equals(l.key()))) {
+            labels.add(new Label(Label.CORRELATION_ID, createCommand.executionId()));
+        }
+
         var newExecution = Execution.newExecution(
                 flow,
                 (x, y) -> createCommand.inputs(),
-                createCommand.labels(),
+                labels,
                 Optional.empty(),
                 createCommand.kind()
-            ).withScheduleDate(createCommand.scheduleDate())
-            .withState(createCommand.stateType())
+            ).toBuilder().id(createCommand.executionId()).build()
+            .withScheduleDate(createCommand.scheduleDate())
             .withBreakpoints(createCommand.breakpoints())
-            .withFlowRevision(createCommand.flowRevision())
             .withTrigger(createCommand.trigger());
+
+        if (createCommand.flowRevision() != null) {
+            newExecution = newExecution.withFlowRevision(createCommand.flowRevision());
+        }
+
+        if (createCommand.stateType() != null) {
+            newExecution = newExecution.withState(createCommand.stateType());
+        }
 
         /*if (emitEvent) {
             eventPublisher.publishEvent(CrudEvent.create(newExecution));

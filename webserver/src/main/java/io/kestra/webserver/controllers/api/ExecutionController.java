@@ -737,7 +737,7 @@ public class ExecutionController {
                             return Mono.just(ExecutionResponse.fromExecution(res.body(), executionUrl));
                         }
 
-                        if (!wait || finalCreateCommand.stateType().isFailed()) {
+                        if (!wait || (finalCreateCommand.stateType() != null && finalCreateCommand.stateType().isFailed())) {
                             return Mono.just(
                                 ExecutionResponse.fromExecution(
                                     res.body(),
