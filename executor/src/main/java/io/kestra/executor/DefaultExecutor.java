@@ -1,27 +1,22 @@
 package io.kestra.executor;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import io.kestra.core.executor.command.Create;
-import org.slf4j.event.Level;
-
+import io.kestra.core.async.AsyncOperationProcessedEvent;
+import io.kestra.core.async.AsyncOperationService;
 import io.kestra.core.contexts.KestraContext;
 import io.kestra.core.exceptions.DeserializationException;
 import io.kestra.core.exceptions.FlowNotFoundException;
 import io.kestra.core.exceptions.InternalException;
+import io.kestra.core.executor.command.Create;
 import io.kestra.core.executor.command.ExecutionCommand;
 import io.kestra.core.killswitch.EvaluationType;
 import io.kestra.core.killswitch.KillSwitchService;
 import io.kestra.core.metrics.MetricRegistry;
 import io.kestra.core.models.Label;
 import io.kestra.core.models.executions.*;
-import io.kestra.core.models.flows.*;
+import io.kestra.core.models.flows.Concurrency;
+import io.kestra.core.models.flows.FlowInterface;
+import io.kestra.core.models.flows.FlowWithSource;
+import io.kestra.core.models.flows.State;
 import io.kestra.core.models.flows.sla.ExecutionMonitoringSLA;
 import io.kestra.core.models.flows.sla.SLA;
 import io.kestra.core.models.flows.sla.Violation;
@@ -32,27 +27,34 @@ import io.kestra.core.queues.QueueException;
 import io.kestra.core.queues.QueueSubscriber;
 import io.kestra.core.runners.*;
 import io.kestra.core.runners.Executor;
-import io.kestra.core.runners.MultipleConditionEvent;
-import io.kestra.core.runners.SubflowExecutionEnd;
 import io.kestra.core.scheduler.events.TriggerExecutionTerminated;
 import io.kestra.core.scheduler.queue.TriggerEventQueue;
 import io.kestra.core.server.AbstractService;
 import io.kestra.core.server.Metric;
 import io.kestra.core.server.ServiceStateChangeEvent;
 import io.kestra.core.server.ServiceType;
-import io.kestra.core.services.*;
+import io.kestra.core.services.ExecutionService;
+import io.kestra.core.services.MaintenanceService;
 import io.kestra.core.utils.*;
 import io.kestra.executor.configuration.ExecutorConfiguration;
 import io.kestra.executor.handler.*;
 import io.kestra.plugin.core.flow.Loop;
 import io.kestra.plugin.core.trigger.Webhook;
-
 import io.micrometer.core.instrument.Timer;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import jakarta.annotation.PostConstruct;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.event.Level;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.kestra.core.utils.Rethrow.*;
 
@@ -96,6 +98,8 @@ public class DefaultExecutor extends AbstractService implements Executor {
     private SLAService slaService;
     @Inject
     private MaintenanceService maintenanceService;
+    @Inject
+    private AsyncOperationService asyncOperationService;
 
     @Inject
     private FlowMetaStoreInterface flowMetaStore;
@@ -364,7 +368,7 @@ public class DefaultExecutor extends AbstractService implements Executor {
             }
         }
 
-        Optional<ExecutorContext> maybeExecutor;
+        Optional<ExecutorContext> maybeExecutor = Optional.empty();
         if(message instanceof Create) {
             var createCommand = (Create) message;
             var flow = flowMetaStore
@@ -382,7 +386,18 @@ public class DefaultExecutor extends AbstractService implements Executor {
 
             var eventType = newExecution.getState().isCreated() ? ExecutionEventType.CREATED : ExecutionEventType.UPDATED;
             var createExecutionEvent = new ExecutionEvent(newExecution, eventType);
-            maybeExecutor = executionEventMessageHandler.handle(createExecutionEvent);
+
+            AsyncOperationProcessedEvent.Outcome outcome = AsyncOperationProcessedEvent.Outcome.SUCCEEDED;
+            String error = null;
+            try {
+                maybeExecutor = executionEventMessageHandler.handle(createExecutionEvent);
+            } catch (Exception e) {
+                log.error("Unable to process event for execution {}: ignoring {} command with eventId {}", message.executionId(), message.getClass().getSimpleName(), message.eventId(), e);
+                outcome = AsyncOperationProcessedEvent.Outcome.FAILED;
+                error = e.getMessage();
+            } finally {
+                asyncOperationService.emitProcessedIfAsync(message, message.tenantId(), message.executionId(), outcome, error);
+            }
         } else {
             maybeExecutor = executionCommandMessageHandler.handle(message);
         }
