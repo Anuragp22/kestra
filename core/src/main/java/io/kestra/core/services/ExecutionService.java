@@ -213,6 +213,10 @@ public class ExecutionService {
             newExecution = newExecution.withState(createCommand.stateType());
         }
 
+        if (createCommand.traceParent() != null) {
+            newExecution.setTraceParent(createCommand.traceParent());
+        }
+
         /*if (emitEvent) {
             eventPublisher.publishEvent(CrudEvent.create(newExecution));
         }*/

@@ -33,13 +33,15 @@ public record Create(
     @With @JsonProperty @Nullable Integer flowRevision,
     @With @JsonProperty @Nullable Instant scheduleDate,
     @With @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable @Schema(implementation = Object.class) Map<String, Object> inputs,
-    @With @JsonProperty @Nullable List<Breakpoint> breakpoints
+    @With @JsonProperty @Nullable List<Breakpoint> breakpoints,
+    @With @JsonProperty @Nullable String traceParent
 ) implements ExecutionCommand {
     public static Create of(ExecutionId executionId) {
         return new Create(
             executionId,
             Instant.now(),
             EventId.create(),
+            null,
             null,
             null,
             null,

@@ -719,11 +719,14 @@ public class ExecutionController {
                         createCommand = createCommand.withStateType(State.Type.FAILED);
                     }
 
-                    // inject the traceparent into the execution
+                    // inject the traceparent from the current OTel context into the command so it's propagated to the execution
                     openTelemetry
                         .map(OpenTelemetry::getPropagators)
                         .map(ContextPropagators::getTextMapPropagator)
                         .ifPresent(propagator -> propagator.inject(Context.current(), dummyExecutionOnlyForInputs, ExecutionTextMapSetter.INSTANCE));
+                    if (dummyExecutionOnlyForInputs.getTraceParent() != null) {
+                        createCommand = createCommand.withTraceParent(dummyExecutionOnlyForInputs.getTraceParent());
+                    }
 
                     Create finalCreateCommand = createCommand;
                     return awaitBlockingAction(
