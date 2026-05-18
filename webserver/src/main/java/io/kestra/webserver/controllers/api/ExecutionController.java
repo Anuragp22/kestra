@@ -749,7 +749,7 @@ public class ExecutionController {
                             );
                         }
 
-                        // SSE susbcribe
+                        // SSE subscribe
                         String subscriberId = UUID.randomUUID().toString();
                         // Use Flux to wait for completion using the streaming service
                         return Flux.<Event<Execution>> create(emitter ->
