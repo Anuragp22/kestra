@@ -30,22 +30,28 @@ public class ExecutionCommandMessageHandler implements ExecutorMessageHandler<Ex
     private final FlowMetaStoreInterface flowMetaStore;
     private final TaskOutputService taskOutputService;
     private final AsyncOperationService asyncOperationService;
+    private final CreateCommandHandler createCommandHandler;
 
     @Inject
     public ExecutionCommandMessageHandler(ExecutionService executionService,
         ExecutionStateStore executionStateStore,
         FlowMetaStoreInterface flowMetaStore,
         TaskOutputService taskOutputService,
-        AsyncOperationService asyncOperationService) {
+        AsyncOperationService asyncOperationService,
+        CreateCommandHandler createCommandHandler) {
         this.executionService = executionService;
         this.executionStateStore = executionStateStore;
         this.flowMetaStore = flowMetaStore;
         this.taskOutputService = taskOutputService;
         this.asyncOperationService = asyncOperationService;
+        this.createCommandHandler = createCommandHandler;
     }
 
     @Override
     public Optional<ExecutorContext> handle(ExecutionCommand message) {
+        if (message instanceof Create createCommand) {
+            return createCommandHandler.handle(createCommand);
+        }
         return executionStateStore.lock(message.executionId(), execution ->
         {
             AsyncOperationProcessedEvent.Outcome outcome = AsyncOperationProcessedEvent.Outcome.SUCCEEDED;

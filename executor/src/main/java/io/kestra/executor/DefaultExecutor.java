@@ -4,7 +4,6 @@ import io.kestra.core.contexts.KestraContext;
 import io.kestra.core.exceptions.DeserializationException;
 import io.kestra.core.exceptions.FlowNotFoundException;
 import io.kestra.core.exceptions.InternalException;
-import io.kestra.core.executor.command.Create;
 import io.kestra.core.executor.command.ExecutionCommand;
 import io.kestra.core.killswitch.EvaluationType;
 import io.kestra.core.killswitch.KillSwitchService;
@@ -118,8 +117,6 @@ public class DefaultExecutor extends AbstractService implements Executor {
     @Inject
     private RunContextFactory runContextFactory;
 
-    @Inject
-    private CreateCommandHandler createCommandHandler;
     @Inject
     private ExecutionCommandMessageHandler executionCommandMessageHandler;
     @Inject
@@ -365,12 +362,7 @@ public class DefaultExecutor extends AbstractService implements Executor {
             }
         }
 
-        Optional<ExecutorContext> maybeExecutor;
-        if (message instanceof Create createCommand) {
-            maybeExecutor = createCommandHandler.handle(createCommand);
-        } else {
-            maybeExecutor = executionCommandMessageHandler.handle(message);
-        }
+        Optional<ExecutorContext> maybeExecutor = executionCommandMessageHandler.handle(message);
 
         maybeExecutor.ifPresent(this::toExecution);
     }

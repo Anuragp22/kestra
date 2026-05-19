@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import io.kestra.core.debug.Breakpoint;
 import io.kestra.core.events.EventId;
 import io.kestra.core.executor.command.*;
+import io.kestra.core.models.executions.ExecutionId;
 import io.kestra.core.junit.annotations.ExecuteFlow;
 import io.kestra.core.junit.annotations.KestraTest;
 import io.kestra.core.junit.annotations.LoadFlows;
@@ -52,6 +53,25 @@ class ExecutionCommandMessageHandlerTest {
 
     @Inject
     private BroadcastQueueInterface<AsyncOperationProcessedEvent> asyncOperationProcessedEventQueue;
+
+    @Test
+    @LoadFlows("flows/valids/minimal.yaml")
+    void create() {
+        // Given
+        var flow = flowRepository.findById(TenantService.MAIN_TENANT, "io.kestra.tests", "minimal").orElseThrow();
+        var executionId = IdUtils.create();
+        var command = Create.of(new ExecutionId(flow.getTenantId(), flow.getNamespace(), flow.getId(), executionId, flow.getRevision()));
+
+        // When
+        Optional<ExecutorContext> handle = executionCommandMessageHandler.handle(command);
+
+        // Then
+        assertThat(handle).isPresent();
+        assertThat(handle.get().getExecution().getId()).isEqualTo(executionId);
+        assertThat(handle.get().getExecution().getState().getHistories())
+            .map(State.History::getState)
+            .contains(State.Type.CREATED);
+    }
 
     @Test
     @ExecuteFlow("flows/valids/failed-first.yaml")
