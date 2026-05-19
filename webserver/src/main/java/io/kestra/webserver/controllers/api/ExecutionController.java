@@ -1081,7 +1081,7 @@ public class ExecutionController {
 
         Flow flow = flowService.getFlowIfExecutableOrThrow(tenantService.resolveTenant(), execution.getNamespace(), execution.getFlowId(), Optional.ofNullable(revision));
 
-        return blockingReplay(execution, flow, taskRunId, revision, breakpoints);
+        return blockingReplay(execution, taskRunId, revision, breakpoints);
     }
 
     @ExecuteOn(TaskExecutors.IO)
@@ -1125,35 +1125,38 @@ public class ExecutionController {
         Flow flow = flowService.getFlowIfExecutableOrThrow(tenantService.resolveTenant(), current.getNamespace(), current.getFlowId(), Optional.ofNullable(revision));
 
         return flowInputOutput.readExecutionInputs(flow, current, inputs)
-            .flatMap(newInputs -> Mono.fromCallable(() -> blockingReplay(current.withInputs(newInputs), flow, taskRunId, revision, breakpoints)));
+            .flatMap(newInputs -> Mono.fromCallable(() -> blockingReplay(current.withInputs(newInputs), taskRunId, revision, breakpoints)));
 
     }
 
-    private HttpResponse<Execution> blockingReplay(Execution execution, Flow flow, @Nullable String taskRunId, @Nullable Integer revision, Optional<String> breakpoints) throws Exception {
+    private HttpResponse<Execution> blockingReplay(Execution execution, @Nullable String taskRunId, @Nullable Integer revision, Optional<String> breakpoints) throws Exception {
         if (taskRunId != null) {
             if (execution.getTaskRunList().stream().noneMatch(tr -> tr.getId().equals(taskRunId))) {
                 throw new IllegalArgumentException("Task run id '" + taskRunId + "' not found in execution '" + execution.getId() + "'");
             }
         }
 
-        var replayedExecution = executionService.replay(execution, flow, taskRunId, revision, breakpoints, true);
+        var newExecutionId = IdUtils.create();
 
         AsyncOperationProcessedEvent processed;
         try {
             processed = asyncOperationWaiter.submitAndWait(
-                execution.getId(),
+                newExecutionId,
                 operationId ->
                 {
                     try {
-                        // emit the replayed execution (new run, no operationId tagging)
-                        executionQueue.emit(replayedExecution);
+                        // emit Replay command; signals completion via operationId when new execution is created
+                        executionCommandQueue.emit(
+                            Replay.from(execution, newExecutionId, taskRunId, revision, breakpoints.orElse(null))
+                                .withOperationId(operationId)
+                        );
 
-                        // update parent exec with replayed label; tag with operationId for completion signal
+                        // update parent exec with replayed label (fire-and-forget)
                         List<Label> newLabels = new ArrayList<>(execution.getLabels());
                         if (!newLabels.contains(new Label(Label.REPLAYED, "true"))) {
                             newLabels.add(new Label(Label.REPLAYED, "true"));
                         }
-                        executionCommandQueue.emit(UpdateLabels.from(execution, newLabels).withOperationId(operationId));
+                        executionCommandQueue.emit(UpdateLabels.from(execution, newLabels));
                     } catch (QueueException e) {
                         throw new RuntimeException(e);
                     }
@@ -1168,20 +1171,22 @@ public class ExecutionController {
             throw new HttpStatusException(HttpStatus.CONFLICT, "Replay failed: " + processed.error());
         }
 
-        return HttpResponse.ok(replayedExecution);
+        return HttpResponse.ok(executionRepository.findById(tenantService.resolveTenant(), newExecutionId)
+            .orElseThrow(() -> new HttpStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Replayed execution not found after creation")));
     }
 
-    private void innerReplayBatch(Execution execution, Flow flow, @Nullable String taskRunId, @Nullable Integer revision, Optional<String> breakpoints, String operationId) throws Exception {
+    private void innerReplayBatch(Execution execution, @Nullable String taskRunId, @Nullable Integer revision, Optional<String> breakpoints, String operationId) throws Exception {
         if (taskRunId != null) {
             if (execution.getTaskRunList().stream().noneMatch(tr -> tr.getId().equals(taskRunId))) {
                 throw new IllegalArgumentException("Task run id '" + taskRunId + "' not found in execution '" + execution.getId() + "'");
             }
         }
 
-        var replayedExecution = executionService.replay(execution, flow, taskRunId, revision, breakpoints, true);
-        executionQueue.emit(replayedExecution);
+        var newExecutionId = IdUtils.create();
+        // emit Replay command fire-and-forget (no operationId on the replay itself)
+        executionCommandQueue.emit(Replay.from(execution, newExecutionId, taskRunId, revision, breakpoints.orElse(null)));
 
-        // update parent exec with replayed label; tag with operationId for completion tracking
+        // update parent exec with replayed label; tag with operationId for batch completion tracking
         List<Label> newLabels = new ArrayList<>(execution.getLabels());
         if (!newLabels.contains(new Label(Label.REPLAYED, "true"))) {
             newLabels.add(new Label(Label.REPLAYED, "true"));
@@ -1759,7 +1764,7 @@ public class ExecutionController {
         {
             Flow flow = flowRepository.findById(execution.getTenantId(), execution.getNamespace(), execution.getFlowId(), Optional.empty()).orElseThrow();
             try {
-                innerReplayBatch(execution, flow, null, latestRevision ? flow.getRevision() : null, Optional.empty(), opId);
+                innerReplayBatch(execution, null, latestRevision ? flow.getRevision() : null, Optional.empty(), opId);
             } catch (QueueException e) {
                 throw e;
             } catch (Exception e) {

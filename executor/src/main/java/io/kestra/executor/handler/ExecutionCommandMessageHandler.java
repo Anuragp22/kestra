@@ -31,6 +31,7 @@ public class ExecutionCommandMessageHandler implements ExecutorMessageHandler<Ex
     private final TaskOutputService taskOutputService;
     private final AsyncOperationService asyncOperationService;
     private final CreateCommandHandler createCommandHandler;
+    private final ReplayCommandHandler replayCommandHandler;
 
     @Inject
     public ExecutionCommandMessageHandler(ExecutionService executionService,
@@ -38,19 +39,24 @@ public class ExecutionCommandMessageHandler implements ExecutorMessageHandler<Ex
         FlowMetaStoreInterface flowMetaStore,
         TaskOutputService taskOutputService,
         AsyncOperationService asyncOperationService,
-        CreateCommandHandler createCommandHandler) {
+        CreateCommandHandler createCommandHandler,
+        ReplayCommandHandler replayCommandHandler) {
         this.executionService = executionService;
         this.executionStateStore = executionStateStore;
         this.flowMetaStore = flowMetaStore;
         this.taskOutputService = taskOutputService;
         this.asyncOperationService = asyncOperationService;
         this.createCommandHandler = createCommandHandler;
+        this.replayCommandHandler = replayCommandHandler;
     }
 
     @Override
     public Optional<ExecutorContext> handle(ExecutionCommand message) {
         if (message instanceof Create createCommand) {
             return createCommandHandler.handle(createCommand);
+        }
+        if (message instanceof Replay replayCommand) {
+            return replayCommandHandler.handle(replayCommand);
         }
         return executionStateStore.lock(message.executionId(), execution ->
         {

@@ -331,7 +331,10 @@ public class ExecutionService {
     }
 
     public Execution replay(final Execution execution, Flow flow, @Nullable String taskRunId, @Nullable Integer revision, Optional<String> breakpoints, boolean emitEvent) throws Exception {
-        final String newExecutionId = IdUtils.create();
+        return replay(execution, flow, taskRunId, revision, breakpoints, emitEvent, IdUtils.create());
+    }
+
+    public Execution replay(final Execution execution, Flow flow, @Nullable String taskRunId, @Nullable Integer revision, Optional<String> breakpoints, boolean emitEvent, String newExecutionId) throws Exception {
         List<TaskRun> newTaskRuns = new ArrayList<>();
         if (taskRunId != null) {
             GraphCluster graphCluster = GraphUtils.of(flow, execution);
