@@ -3,12 +3,8 @@ package io.kestra.webserver.controllers.api;
 import java.io.File;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import org.junit.jupiter.api.Assertions;
@@ -45,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Slf4j
-@KestraTest(startRunner = true)
+@KestraTest
 class ExecutionControllerTest {
     @Inject
     private ExecutionRepositoryInterface executionRepository;
@@ -460,23 +456,6 @@ class ExecutionControllerTest {
     }
 
     @Test
-    @LoadFlows(value = { "flows/valids/minimal.yaml" })
-    void scheduleDate() {
-        // given
-        ZonedDateTime now = ZonedDateTime.now().truncatedTo(ChronoUnit.SECONDS).plusSeconds(1);
-        String scheduleDate = URLEncoder.encode(DateTimeFormatter.ISO_ZONED_DATE_TIME.format(now), StandardCharsets.UTF_8);
-
-        // when
-        MutableHttpRequest<?> createRequest = HttpRequest
-            .POST("/api/v1/main/executions/" + TESTS_FLOW_NS + "/minimal?scheduleDate=" + scheduleDate, null)
-            .contentType(MediaType.MULTIPART_FORM_DATA_TYPE);
-        Execution execution = client.toBlocking().retrieve(createRequest, Execution.class);
-
-        // then
-        assertThat(execution.getScheduleDate()).isEqualTo(now.toInstant());
-    }
-
-    @Test
     @LoadFlows(value = {"flows/valids/inputs.yaml"})
     void shouldValidateInputsForCreateExecutionGivenSimpleInputs() {
         // given
@@ -500,22 +479,6 @@ class ExecutionControllerTest {
         Assertions.assertEquals(namespace, response.namespace());
         Assertions.assertFalse(response.inputs().isEmpty());
         Assertions.assertTrue(response.inputs().stream().allMatch(ExecutionController.ApiValidateExecutionInputsResponse.ApiInputAndValue::enabled));
-    }
-
-    @Test
-    @LoadFlows(value = { "flows/valids/minimal.yaml" })
-    void shouldHaveAnUrlWhenCreated() {
-        // ExecutionController.ExecutionResponse cannot be deserialized because it didn't have any default constructor.
-        // adding it would mean updating the Execution itself, which is too annoying, so for the test we just deserialize to a Map.
-        Map<?, ?> executionResult = client.toBlocking().retrieve(
-            HttpRequest
-                .POST("/api/v1/main/executions/" + TESTS_FLOW_NS + "/minimal", null)
-                .contentType(MediaType.MULTIPART_FORM_DATA_TYPE),
-            Map.class
-        );
-
-        assertThat(executionResult).isNotNull();
-        assertThat(executionResult.get("url")).isEqualTo("http://localhost:8081/ui/main/executions/io.kestra.tests/minimal/" + executionResult.get("id"));
     }
 
     @Test
