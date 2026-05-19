@@ -740,6 +740,7 @@ public class DefaultExecutor extends AbstractService implements Executor {
                 // We need to detect that and reset them as they will never reach the reset code later on this method.
                 if (execution.getTrigger() != null && execution.getState().isFailed() && ListUtils.isEmpty(execution.getTaskRunList())) {
                     sendTriggerExecutionTerminated(execution);
+                    this.followExecutionEventQueue.emitAsync(new FollowExecutionEvent(execution, ExecutionEventType.TERMINATED));
                 }
 
                 return;

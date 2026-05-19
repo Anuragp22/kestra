@@ -615,7 +615,7 @@ public class ExecutionController {
             try {
                 executionCommandQueue.emit(createCommand);
             } catch (QueueException ex) {
-                log.error("Unable to emit the execution command", ex);
+                log.error("Unable to emit the failed execution command", ex);
             }
 
             return Mono.just(HttpResponse.status(HttpStatus.INTERNAL_SERVER_ERROR));

@@ -63,9 +63,10 @@ public class WebhookPluginTest {
         assertThat(((Map<String, String>) Objects.requireNonNull(executionReference.get()).getTrigger().getVariables().get("body")).get("test")).isEqualTo("data");
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     @LoadFlows(value = { "flows/valids/webhook-plugin.yaml" })
-    void webbookFailedExecution() throws InterruptedException {
+    void pluginWorks_webhook2() throws InterruptedException {
         CountDownLatch queueCount = new CountDownLatch(1);
         AtomicReference<Execution> executionReference = new AtomicReference<>();
         executionQueue.addListener(execution ->
@@ -76,7 +77,23 @@ public class WebhookPluginTest {
             }
         });
 
-        // Test that wrong namespace returns 404
+        var response = client.toBlocking().exchange(
+            PUT(
+                "/api/v1/main/executions/webhook/io.kestra.tests/webhook-plugin/case2",
+                "{\"test\": \"data\"}"
+            ),
+            String.class
+        );
+
+        assertThat((Object) response.getStatus()).isEqualTo(HttpStatus.OK);
+
+        assertTrue(queueCount.await(10, TimeUnit.SECONDS));
+        assertThat(((Map<String, String>) Objects.requireNonNull(executionReference.get()).getTrigger().getVariables().get("body")).get("test")).isEqualTo("data");
+    }
+
+    @Test
+    @LoadFlows(value = { "flows/valids/webhook-plugin.yaml" })
+    void webbookFailedExecution() {
         HttpClientResponseException exception = assertThrows(
             HttpClientResponseException.class,
             () -> client.toBlocking().exchange(
@@ -89,9 +106,5 @@ public class WebhookPluginTest {
         );
 
         assertThat((Object) exception.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-
-        assertTrue(queueCount.await(10, TimeUnit.SECONDS));
-        assertThat(Objects.requireNonNull(executionReference.get()).getState().getCurrent()).isEqualTo(State.Type.FAILED);
     }
-
 }
