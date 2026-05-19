@@ -1,7 +1,5 @@
 package io.kestra.executor;
 
-import io.kestra.core.async.AsyncOperationProcessedEvent;
-import io.kestra.core.async.AsyncOperationService;
 import io.kestra.core.contexts.KestraContext;
 import io.kestra.core.exceptions.DeserializationException;
 import io.kestra.core.exceptions.FlowNotFoundException;
@@ -99,9 +97,6 @@ public class DefaultExecutor extends AbstractService implements Executor {
     @Inject
     private MaintenanceService maintenanceService;
     @Inject
-    private AsyncOperationService asyncOperationService;
-
-    @Inject
     private FlowMetaStoreInterface flowMetaStore;
 
     @Inject
@@ -123,6 +118,8 @@ public class DefaultExecutor extends AbstractService implements Executor {
     @Inject
     private RunContextFactory runContextFactory;
 
+    @Inject
+    private CreateCommandHandler createCommandHandler;
     @Inject
     private ExecutionCommandMessageHandler executionCommandMessageHandler;
     @Inject
@@ -368,36 +365,9 @@ public class DefaultExecutor extends AbstractService implements Executor {
             }
         }
 
-        Optional<ExecutorContext> maybeExecutor = Optional.empty();
-        if(message instanceof Create) {
-            var createCommand = (Create) message;
-            var flow = flowMetaStore
-                .findById(createCommand.tenantId(), createCommand.namespace(), createCommand.flowId(), Optional.ofNullable(createCommand.flowRevision()))
-                .orElseThrow(() -> new FlowNotFoundException(createCommand.executionFullId(), createCommand.flowRevision()));
-
-            var newExecution = executionService.create(createCommand, flow);
-
-            try {
-                // we create the execution even if skipped, so it is at least present in the DB
-                executionStateStore.create(newExecution);
-            } catch (Exception e) {
-                log.error("Unable to create execution {}", newExecution.getId(), e);
-            }
-
-            var eventType = newExecution.getState().isCreated() ? ExecutionEventType.CREATED : ExecutionEventType.UPDATED;
-            var createExecutionEvent = new ExecutionEvent(newExecution, eventType);
-
-            AsyncOperationProcessedEvent.Outcome outcome = AsyncOperationProcessedEvent.Outcome.SUCCEEDED;
-            String error = null;
-            try {
-                maybeExecutor = executionEventMessageHandler.handle(createExecutionEvent);
-            } catch (Exception e) {
-                log.error("Unable to process event for execution {}: ignoring {} command with eventId {}", message.executionId(), message.getClass().getSimpleName(), message.eventId(), e);
-                outcome = AsyncOperationProcessedEvent.Outcome.FAILED;
-                error = e.getMessage();
-            } finally {
-                asyncOperationService.emitProcessedIfAsync(message, message.tenantId(), message.executionId(), outcome, error);
-            }
+        Optional<ExecutorContext> maybeExecutor;
+        if (message instanceof Create createCommand) {
+            maybeExecutor = createCommandHandler.handle(createCommand);
         } else {
             maybeExecutor = executionCommandMessageHandler.handle(message);
         }
