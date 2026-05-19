@@ -20,7 +20,6 @@ import java.util.stream.Stream;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.reactivestreams.Publisher;
-import org.slf4j.Logger;
 import org.slf4j.event.Level;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -608,24 +607,18 @@ public class ExecutionController {
         try {
             return webhook.evaluate(webhookContext).map(MicronautHttpService::to);
         } catch (Exception e) {
-            Execution failedExecution = Execution.builder()
-                .id(IdUtils.create())
-                .tenantId(flow.getTenantId())
-                .namespace(flow.getNamespace())
-                .flowId(flow.getId())
-                .flowRevision(flow.getRevision())
-                .labels(LabelService.labelsExcludingSystem(flow.getLabels()))
-                .state(new State().withState(State.Type.FAILED))
-                .trigger(ExecutionTrigger.of(webhook, Map.of()))
-                .build();
+            var executionId = IdUtils.create();
+            var createCommand = Create.of(new ExecutionId(flow.getTenantId(), flow.getNamespace(), flow.getId(), executionId, flow.getRevision()))
+                .withLabels(LabelService.labelsExcludingSystem(flow.getLabels()))
+                .withStateType(State.Type.FAILED)
+                .withTrigger(ExecutionTrigger.of(webhook, Map.of()));
 
-            Logger logger = webhookContext.webhookService().runContext(flow, failedExecution).logger();
-            logger.error("[trigger: {}] Webhook evaluate Failed with error '{}'", webhookContext.trigger(), e.getMessage());
+            log.error("[trigger: {}] Webhook evaluate failed with error '{}'", webhookContext.trigger(), e.getMessage());
 
             try {
-                this.executionQueue.emit(failedExecution);
+                executionCommandQueue.emit(createCommand);
             } catch (QueueException ex) {
-                log.error("Unable to emit the execution", ex);
+                log.error("Unable to emit the execution command", ex);
             }
 
             return Mono.just(HttpResponse.status(HttpStatus.INTERNAL_SERVER_ERROR));
