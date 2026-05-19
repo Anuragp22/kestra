@@ -51,7 +51,7 @@ class CreateCommandHandlerTest {
             executionEventMessageHandler,
             asyncOperationService
         );
-        command = Create.of(new ExecutionId("tenant", "ns", "flow-id", "exec-1"))
+        command = Create.of(new ExecutionId("tenant", "ns", "flow-id", "exec-1", null))
             .withOperationId("op-1");
     }
 

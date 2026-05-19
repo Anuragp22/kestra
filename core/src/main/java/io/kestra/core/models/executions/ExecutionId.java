@@ -1,4 +1,6 @@
 package io.kestra.core.models.executions;
 
-public record ExecutionId(String tenantId, String namespace, String flowId, String executionId) {
+import jakarta.annotation.Nullable;
+
+public record ExecutionId(String tenantId, String namespace, String flowId, String executionId, @Nullable Integer flowRevision) {
 }

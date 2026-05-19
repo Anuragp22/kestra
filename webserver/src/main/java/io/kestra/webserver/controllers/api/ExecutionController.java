@@ -707,7 +707,7 @@ public class ExecutionController {
                 }
 
                 var executionId = IdUtils.create();
-                Create createCommand = Create.of(new ExecutionId(flow.getTenantId(), flow.getNamespace(), flow.getId(), executionId))
+                Create createCommand = Create.of(new ExecutionId(flow.getTenantId(), flow.getNamespace(), flow.getId(), executionId, flow.getRevision()))
                     .withLabels(parsedLabels)
                     .withInputs(executionInputs)
                     .withScheduleDate(scheduleDate.map(ChronoZonedDateTime::toInstant).orElse(null))
