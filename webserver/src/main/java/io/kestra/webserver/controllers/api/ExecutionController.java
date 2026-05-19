@@ -175,9 +175,6 @@ public class ExecutionController {
     private ExecutionDependenciesStreamingService executionDependenciesStreamingService;
 
     @Inject
-    protected DispatchQueueInterface<Execution> executionQueue;
-
-    @Inject
     protected BroadcastQueueInterface<ExecutionKilled> killQueue;
 
     @Inject
