@@ -465,6 +465,22 @@ public class QueryFilterTest {
             ),
 
             buildQueryFiltersForOperations(
+                Field.QUERY, Resource.BLUEPRINT,
+                Set.of(
+                    Op.EQUALS,
+                    Op.NOT_EQUALS
+                )
+            ),
+
+            buildQueryFiltersForOperations(
+                Field.TAGS, Resource.BLUEPRINT,
+                Set.of(
+                    Op.CONTAINS,
+                    Op.IN
+                )
+            ),
+
+            buildQueryFiltersForOperations(
                 Field.QUERY, Resource.TENANT,
                 Set.of(
                     Op.EQUALS,
@@ -1224,6 +1240,40 @@ public class QueryFilterTest {
                     Op.LESS_THAN,
                     Op.GREATER_THAN_OR_EQUAL_TO,
                     Op.LESS_THAN_OR_EQUAL_TO
+                )
+            ),
+
+            buildQueryFiltersForOperations(
+                Field.QUERY, Resource.BLUEPRINT,
+                Set.of(
+                    Op.GREATER_THAN,
+                    Op.LESS_THAN,
+                    Op.GREATER_THAN_OR_EQUAL_TO,
+                    Op.LESS_THAN_OR_EQUAL_TO,
+                    Op.IN,
+                    Op.NOT_IN,
+                    Op.STARTS_WITH,
+                    Op.ENDS_WITH,
+                    Op.CONTAINS,
+                    Op.REGEX,
+                    Op.PREFIX
+                )
+            ),
+
+            buildQueryFiltersForOperations(
+                Field.TAGS, Resource.BLUEPRINT,
+                Set.of(
+                    Op.EQUALS,
+                    Op.NOT_EQUALS,
+                    Op.GREATER_THAN,
+                    Op.LESS_THAN,
+                    Op.GREATER_THAN_OR_EQUAL_TO,
+                    Op.LESS_THAN_OR_EQUAL_TO,
+                    Op.NOT_IN,
+                    Op.STARTS_WITH,
+                    Op.ENDS_WITH,
+                    Op.REGEX,
+                    Op.PREFIX
                 )
             ),
 

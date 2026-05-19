@@ -343,6 +343,10 @@ public abstract class AbstractJdbcRepository {
             return typeCondition(value, operation);
         }
 
+        if (field == QueryFilter.Field.TAGS) {
+            return tagsCondition(value, operation);
+        }
+
         if (field == QueryFilter.Field.RESOURCES) {
             return resourceTypesCondition(value, operation);
         }
@@ -481,6 +485,10 @@ public abstract class AbstractJdbcRepository {
 
     protected Condition nameCondition(Object value, QueryFilter.Op operation) {
         return defaultHandlers(QueryFilter.Field.NAME, value, operation);
+    }
+
+    protected Condition tagsCondition(Object value, QueryFilter.Op operation) {
+        throw new InvalidQueryFiltersException("Unsupported operation for TAGS field: " + operation);
     }
 
     protected Condition typeCondition(Object value, QueryFilter.Op operation) {
