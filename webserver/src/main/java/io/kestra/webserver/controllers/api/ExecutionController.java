@@ -64,7 +64,6 @@ import io.kestra.core.storages.*;
 import io.kestra.core.tenant.TenantService;
 import io.kestra.core.test.flow.TaskFixture;
 import io.kestra.core.topologies.FlowTopologyService;
-import io.kestra.core.trace.propagation.ExecutionTextMapSetter;
 import io.kestra.core.utils.Await;
 import io.kestra.core.utils.IdUtils;
 import io.kestra.core.utils.ListUtils;
@@ -686,11 +685,8 @@ public class ExecutionController {
         List<Label> parsedLabels = parseLabels(labels);
 
 
-        final Execution dummyExecutionOnlyForInputs = Execution.newExecution(flow, null, parsedLabels, scheduleDate).toBuilder()
-            .kind(kind.orElse(null))
-            .breakpoints(breakpoints.map(s -> Arrays.stream(s.split(",")).map(Breakpoint::of).toList()).orElse(null))
-            .build();// TODO create a flowInputOutput.readExecutionInputs method that does not take a full execution as parameter
-        return flowInputOutput.readExecutionInputs(flow, dummyExecutionOnlyForInputs, inputs)
+        var executionId = IdUtils.create();
+        return flowInputOutput.readExecutionInputs(flow, executionId, inputs)
             .flatMap(executionInputs ->
             {
                 List<Check> failed = flowService.getFailedChecks(flow, executionInputs);
@@ -706,7 +702,6 @@ public class ExecutionController {
                     );
                 }
 
-                var executionId = IdUtils.create();
                 Create createCommand = Create.of(new ExecutionId(flow.getTenantId(), flow.getNamespace(), flow.getId(), executionId, flow.getRevision()))
                     .withLabels(parsedLabels)
                     .withInputs(executionInputs)
@@ -720,12 +715,13 @@ public class ExecutionController {
                     }
 
                     // inject the traceparent from the current OTel context into the command so it's propagated to the execution
+                    Map<String, String> traceCarrier = new HashMap<>();
                     openTelemetry
                         .map(OpenTelemetry::getPropagators)
                         .map(ContextPropagators::getTextMapPropagator)
-                        .ifPresent(propagator -> propagator.inject(Context.current(), dummyExecutionOnlyForInputs, ExecutionTextMapSetter.INSTANCE));
-                    if (dummyExecutionOnlyForInputs.getTraceParent() != null) {
-                        createCommand = createCommand.withTraceParent(dummyExecutionOnlyForInputs.getTraceParent());
+                        .ifPresent(propagator -> propagator.inject(Context.current(), traceCarrier, Map::put));
+                    if (traceCarrier.containsKey("traceparent")) {
+                        createCommand = createCommand.withTraceParent(traceCarrier.get("traceparent"));
                     }
 
                     Create finalCreateCommand = createCommand;
