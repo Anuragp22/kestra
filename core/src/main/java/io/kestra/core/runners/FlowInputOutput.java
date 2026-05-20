@@ -200,6 +200,13 @@ public class FlowInputOutput {
             .collectMap(Map.Entry::getKey, Map.Entry::getValue);
     }
 
+    public Map<String, Object> readExecutionInputs(
+        final FlowInterface flow,
+        final String executionId,
+        final Map<String, ?> data) {
+        return readExecutionInputs(flow.getInputs(), flow, minimalExecution(flow, executionId), data);
+    }
+
     /**
      * Utility method for retrieving types inputs for a flow.
      *

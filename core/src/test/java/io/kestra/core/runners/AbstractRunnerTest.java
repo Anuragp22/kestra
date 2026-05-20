@@ -5,6 +5,8 @@ import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeoutException;
 
+import io.kestra.core.executor.command.Create;
+import io.kestra.core.executor.command.ExecutionCommand;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junitpioneer.jupiter.RetryingTest;
@@ -92,7 +94,7 @@ public abstract class AbstractRunnerTest {
     private TaskOutputService taskOutputService;
 
     @Inject
-    protected DispatchQueueInterface<Execution> executionQueue;
+    protected DispatchQueueInterface<ExecutionCommand> executionCommandQueue;
 
     @Inject
     protected DispatchQueueInterface<ExecutionEvent> executionEventQueue;
@@ -727,12 +729,11 @@ public abstract class AbstractRunnerTest {
     }
 
     @Test
-    void avoidInfiniteExecutionLoop() throws QueueException, InterruptedException {
+    void avoidInfiniteExecutionLoop() throws QueueException {
         CopyOnWriteArrayList<ExecutionEvent> executions = new CopyOnWriteArrayList<>();
         executionEventQueue.addListener(e -> executions.add(e));
 
-        Execution execution = Execution.newExecution(TestsUtils.mockFlow(), Collections.emptyList());
-        executionQueue.emit(execution);
+        executionCommandQueue.emit(Create.of(TestsUtils.mockFlow().toFlowId()));
 
         // We expect the initial execution message only
         await()

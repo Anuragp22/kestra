@@ -8,7 +8,9 @@ import io.kestra.core.models.Label;
 import io.kestra.core.models.executions.ExecutionId;
 import io.kestra.core.models.executions.ExecutionKind;
 import io.kestra.core.models.executions.ExecutionTrigger;
+import io.kestra.core.models.flows.FlowId;
 import io.kestra.core.models.flows.State;
+import io.kestra.core.utils.IdUtils;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import lombok.With;
@@ -16,6 +18,7 @@ import lombok.With;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public record Create(
     ExecutionId executionFullId,
@@ -32,6 +35,22 @@ public record Create(
     @With @JsonProperty @Nullable List<Breakpoint> breakpoints,
     @With @JsonProperty @Nullable String traceParent
 ) implements ExecutionCommand {
+    public static Create of(FlowId flowId) {
+        return new Create(
+            new  ExecutionId(flowId, IdUtils.create()),
+            Instant.now(),
+            EventId.create(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+    }
     public static Create of(ExecutionId executionId) {
         return new Create(
             executionId,
@@ -47,6 +66,11 @@ public record Create(
             null,
             null
         );
+    }
+
+    public Create withInputsFromReader(Function<String, Map<String, Object>> inputsReader) {
+        var inputs = inputsReader.apply(this.executionId());
+        return new Create(executionFullId, timestamp, eventId,operationId, stateType, kind, trigger, labels, scheduleDate, inputs, breakpoints, traceParent);
     }
 
     @Override
