@@ -33,6 +33,7 @@ import io.kestra.core.exceptions.InternalException;
 import io.kestra.core.executor.command.*;
 import io.kestra.core.models.Label;
 import io.kestra.core.models.QueryFilter;
+import io.kestra.core.models.QueryFilter.Resource;
 import io.kestra.core.repositories.ExecutionRepositoryInterface.DateFilter;
 import io.kestra.core.models.executions.*;
 import io.kestra.core.models.flows.*;
@@ -241,7 +242,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters,
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters,
         @Parameter(description = "Which execution date field the time interval is applied to") @Nullable @QueryValue DateFilter dateFilter
 
     ) {
@@ -452,7 +453,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters,
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters,
 
         @Parameter(description = "Whether to delete non-terminated executions") @Nullable @QueryValue(defaultValue = "false") Boolean includeNonTerminated,
         @Parameter(description = "Whether to delete execution logs", required = false) @QueryValue(defaultValue = "true") Boolean deleteLogs,
@@ -1033,7 +1034,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters) throws Exception {
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters) throws Exception {
         var ids = getExecutionIds(QueryFilterUtils.replaceTimeRangeWithComputedStartDateFilter(filters));
         return restartExecutionsByIds(ids);
     }
@@ -1295,7 +1296,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters,
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters,
 
         @Parameter(description = "The new state of the executions") @NotNull @QueryValue State.Type newStatus) throws QueueException {
         var ids = getExecutionIds(QueryFilterUtils.replaceTimeRangeWithComputedStartDateFilter(filters));
@@ -1570,7 +1571,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters) throws Exception {
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters) throws Exception {
         var ids = getExecutionIds(QueryFilterUtils.replaceTimeRangeWithComputedStartDateFilter(filters));
 
         return resumeExecutionsByIds(ids);
@@ -1655,7 +1656,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters) throws Exception {
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters) throws Exception {
         var ids = getExecutionIds(QueryFilterUtils.replaceTimeRangeWithComputedStartDateFilter(filters));
 
         return pauseExecutionsByIds(ids);
@@ -1668,7 +1669,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters) throws QueueException {
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters) throws QueueException {
         var ids = getExecutionIds(QueryFilterUtils.replaceTimeRangeWithComputedStartDateFilter(filters));
 
         return killExecutionsByIds(ids);
@@ -1682,7 +1683,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters,
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters,
 
         @Parameter(description = "If latest revision should be used") @Nullable @QueryValue(defaultValue = "false") Boolean latestRevision) throws Exception {
         var ids = getExecutionIds(QueryFilterUtils.replaceTimeRangeWithComputedStartDateFilter(filters));
@@ -1990,7 +1991,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters,
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters,
 
         @RequestBody(description = "The labels to add to the execution") @Body @NotNull @Valid List<Label> setLabels) throws QueueException {
         var ids = getExecutionIds(QueryFilterUtils.replaceTimeRangeWithComputedStartDateFilter(filters));
@@ -2080,7 +2081,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters,
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters,
 
         @Parameter(description = "The new state of the unqueued executions") @Nullable @QueryValue State.Type newState) throws Exception {
         var ids = getExecutionIds(QueryFilterUtils.replaceTimeRangeWithComputedStartDateFilter(filters));
@@ -2178,7 +2179,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters) throws Exception {
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters) throws Exception {
         var ids = getExecutionIds(QueryFilterUtils.replaceTimeRangeWithComputedStartDateFilter(filters));
 
         return forceRunByIds(ids);
@@ -2363,7 +2364,7 @@ public class ExecutionController {
         @Parameter(
             description = "Filters. PHP-style nested query is used - examples: `filters[timeRange][EQUALS]=PT168H`, `filters[scope][EQUALS]=USER`, `filters[state][IN]=FAILED,CANCELLED`, `filters[labels][NOT_EQUALS][foo]=bar`, `filters[namespace][CONTAINS]=test`",
             in = ParameterIn.QUERY
-        ) @QueryFilterFormat List<QueryFilter> filters) {
+        ) @QueryFilterFormat(Resource.EXECUTION) List<QueryFilter> filters) {
 
         return HttpResponse.ok(
             CSVUtils.toCSVFlux(
