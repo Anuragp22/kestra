@@ -217,6 +217,14 @@ public class ExecutionService {
             newExecution.setTraceParent(createCommand.traceParent());
         }
 
+        if (createCommand.fixtures() != null) {
+            newExecution = newExecution.toBuilder().fixtures(createCommand.fixtures()).build();
+        }
+
+        if (createCommand.variables() != null) {
+            newExecution = newExecution.withVariables(createCommand.variables());
+        }
+
         /*if (emitEvent) {
             eventPublisher.publishEvent(CrudEvent.create(newExecution));
         }*/

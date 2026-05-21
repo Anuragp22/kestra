@@ -10,6 +10,7 @@ import io.kestra.core.models.executions.ExecutionKind;
 import io.kestra.core.models.executions.ExecutionTrigger;
 import io.kestra.core.models.flows.FlowId;
 import io.kestra.core.models.flows.State;
+import io.kestra.core.test.flow.TaskFixture;
 import io.kestra.core.utils.IdUtils;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
@@ -33,13 +34,17 @@ public record Create(
     @With @JsonProperty @Nullable Instant scheduleDate,
     @With @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable @Schema(implementation = Object.class) Map<String, Object> inputs,
     @With @JsonProperty @Nullable List<Breakpoint> breakpoints,
-    @With @JsonProperty @Nullable String traceParent
+    @With @JsonProperty @Nullable String traceParent,
+    @With @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable List<TaskFixture> fixtures,
+    @With @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable @Schema(implementation = Object.class) Map<String, Object> variables
 ) implements ExecutionCommand {
     public static Create of(FlowId flowId) {
         return new Create(
             new  ExecutionId(flowId, IdUtils.create()),
             Instant.now(),
             EventId.create(),
+            null,
+            null,
             null,
             null,
             null,
@@ -64,13 +69,15 @@ public record Create(
             null,
             null,
             null,
+            null,
+            null,
             null
         );
     }
 
     public Create withInputsFromReader(Function<String, Map<String, Object>> inputsReader) {
         var inputs = inputsReader.apply(this.executionId());
-        return new Create(executionFullId, timestamp, eventId,operationId, stateType, kind, trigger, labels, scheduleDate, inputs, breakpoints, traceParent);
+        return new Create(executionFullId, timestamp, eventId, operationId, stateType, kind, trigger, labels, scheduleDate, inputs, breakpoints, traceParent, fixtures, variables);
     }
 
     @Override
