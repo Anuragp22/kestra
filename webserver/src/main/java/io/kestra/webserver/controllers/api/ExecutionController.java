@@ -721,12 +721,6 @@ public class ExecutionController {
                         operationId -> executionCommandQueue.emit(finalCreateCommand.withOperationId(operationId))
                     ).flatMap(res -> {
                         var executionUrl = executionUrl(finalCreateCommand.executionFullId());
-                        if(res.status().getCode() != 200){
-                            // early return, could not even acknowledge creation command
-                            // FIXME return an error here
-                            return Mono.just(ExecutionResponse.fromExecution(res.body(), executionUrl));
-                        }
-
                         if (!wait || (finalCreateCommand.stateType() != null && finalCreateCommand.stateType().isFailed())) {
                             return Mono.just(
                                 ExecutionResponse.fromExecution(
