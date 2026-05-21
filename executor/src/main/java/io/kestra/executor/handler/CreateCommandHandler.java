@@ -6,6 +6,8 @@ import io.kestra.core.async.AsyncOperationProcessedEvent;
 import io.kestra.core.async.AsyncOperationService;
 import io.kestra.core.exceptions.FlowNotFoundException;
 import io.kestra.core.executor.command.Create;
+import io.kestra.core.killswitch.EvaluationType;
+import io.kestra.core.killswitch.KillSwitchService;
 import io.kestra.core.runners.ExecutionEvent;
 import io.kestra.core.runners.ExecutionEventType;
 import io.kestra.core.runners.FlowMetaStoreInterface;
@@ -26,6 +28,7 @@ public class CreateCommandHandler {
     private final ExecutionStateStore executionStateStore;
     private final ExecutionEventMessageHandler executionEventMessageHandler;
     private final AsyncOperationService asyncOperationService;
+    private final KillSwitchService killSwitchService;
 
     @Inject
     public CreateCommandHandler(
@@ -33,12 +36,14 @@ public class CreateCommandHandler {
         ExecutionService executionService,
         ExecutionStateStore executionStateStore,
         ExecutionEventMessageHandler executionEventMessageHandler,
-        AsyncOperationService asyncOperationService) {
+        AsyncOperationService asyncOperationService,
+        KillSwitchService killSwitchService) {
         this.flowMetaStore = flowMetaStore;
         this.executionService = executionService;
         this.executionStateStore = executionStateStore;
         this.executionEventMessageHandler = executionEventMessageHandler;
         this.asyncOperationService = asyncOperationService;
+        this.killSwitchService = killSwitchService;
     }
 
     public Optional<ExecutorContext> handle(Create createCommand) {
@@ -55,6 +60,15 @@ public class CreateCommandHandler {
             // Any persistence failure is a hard error — the execution must exist in the DB
             // before we signal success back to the caller.
             executionStateStore.create(newExecution);
+
+            // Re-evaluate the kill switch now that the execution exists in the DB.
+            // The pre-check in DefaultExecutor.executionCommandQueue() skips non-existent executions,
+            // so this is the definitive check for newly created ones.
+            EvaluationType evaluationType = killSwitchService.evaluate(newExecution);
+            if (evaluationType != EvaluationType.PASS) {
+                log.warn("Kill switch active ({}): execution {} persisted in CREATED state but will not be processed", evaluationType, newExecution.getId());
+                return Optional.empty();
+            }
 
             var eventType = newExecution.getState().isCreated() ? ExecutionEventType.CREATED : ExecutionEventType.UPDATED;
             return executionEventMessageHandler.handle(new ExecutionEvent(newExecution, eventType));

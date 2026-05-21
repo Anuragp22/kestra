@@ -11,6 +11,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import io.kestra.core.async.AsyncOperationProcessedEvent.Outcome;
 import io.kestra.core.async.AsyncOperationService;
 import io.kestra.core.executor.command.Create;
+import io.kestra.core.killswitch.EvaluationType;
+import io.kestra.core.killswitch.KillSwitchService;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.executions.ExecutionId;
 import io.kestra.core.models.flows.FlowInterface;
@@ -27,6 +29,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,6 +41,7 @@ class CreateCommandHandlerTest {
     @Mock ExecutionStateStore executionStateStore;
     @Mock ExecutionEventMessageHandler executionEventMessageHandler;
     @Mock AsyncOperationService asyncOperationService;
+    @Mock KillSwitchService killSwitchService;
 
     CreateCommandHandler handler;
     Create command;
@@ -49,7 +53,8 @@ class CreateCommandHandlerTest {
             executionService,
             executionStateStore,
             executionEventMessageHandler,
-            asyncOperationService
+            asyncOperationService,
+            killSwitchService
         );
         command = Create.of(new ExecutionId("tenant", "ns", "flow-id", "exec-1", null))
             .withOperationId("op-1");
@@ -63,6 +68,7 @@ class CreateCommandHandlerTest {
         var context = mock(ExecutorContext.class);
         when(flowMetaStore.findById(any(), any(), any(), any())).thenReturn(Optional.of(flow));
         when(executionService.create(eq(command), eq(flow))).thenReturn(execution);
+        when(killSwitchService.evaluate(execution)).thenReturn(EvaluationType.PASS);
         when(executionEventMessageHandler.handle(any())).thenReturn(Optional.of(context));
 
         // When
@@ -109,11 +115,31 @@ class CreateCommandHandlerTest {
         var execution = executionWithState(State.Type.CREATED);
         when(flowMetaStore.findById(any(), any(), any(), any())).thenReturn(Optional.of(flow));
         when(executionService.create(eq(command), eq(flow))).thenReturn(execution);
+        when(killSwitchService.evaluate(execution)).thenReturn(EvaluationType.PASS);
         when(executionEventMessageHandler.handle(any())).thenThrow(new RuntimeException("handler error"));
 
         assertThatCode(() -> handler.handle(command)).doesNotThrowAnyException();
 
         verify(asyncOperationService).emitProcessedIfAsync(eq(command), eq("tenant"), eq("exec-1"), eq(Outcome.FAILED), any());
+    }
+
+    @Test
+    void shouldPersistExecutionAndReturnEmptyWhenKillSwitchActive() {
+        // Given
+        var flow = mock(FlowInterface.class);
+        var execution = mock(Execution.class); // no state stubs needed — kill switch fires before getState()
+        when(flowMetaStore.findById(any(), any(), any(), any())).thenReturn(Optional.of(flow));
+        when(executionService.create(eq(command), eq(flow))).thenReturn(execution);
+        when(killSwitchService.evaluate(execution)).thenReturn(EvaluationType.IGNORE);
+
+        // When
+        Optional<ExecutorContext> result = handler.handle(command);
+
+        // Then — execution was persisted but not processed further
+        assertThat(result).isEmpty();
+        verify(executionStateStore).create(execution);
+        verify(executionEventMessageHandler, never()).handle(any());
+        verify(asyncOperationService).emitProcessedIfAsync(command, "tenant", "exec-1", Outcome.SUCCEEDED, null);
     }
 
     // ---- helpers ----

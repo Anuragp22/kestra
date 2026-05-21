@@ -355,8 +355,11 @@ public class DefaultExecutor extends AbstractService implements Executor {
         ExecutionCommand message = either.getLeft();
         EvaluationType evaluationType = killSwitchService.evaluate(message);
         if (evaluationType != EvaluationType.PASS) {
+            // For Create commands the execution doesn't exist in the DB yet; findById returns null.
+            // In that case we fall through to the command handler which will create it first,
+            // then re-evaluate the kill switch after persisting.
             var execution = executionStateStore.findById(message.executionId());
-            if (evaluationType.isKillSwitched(execution)) {
+            if (execution != null && evaluationType.isKillSwitched(execution)) {
                 handleKillSwitchedExecution(evaluationType, execution);
                 return;
             }
