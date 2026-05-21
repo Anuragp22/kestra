@@ -705,6 +705,7 @@ public class ExecutionController {
                     }
 
                     // inject the traceparent from the current OTel context into the command so it's propagated to the execution
+                    // TODO see if we can replicate ExecutionTextMapSetter logic
                     Map<String, String> traceCarrier = new HashMap<>();
                     openTelemetry
                         .map(OpenTelemetry::getPropagators)
