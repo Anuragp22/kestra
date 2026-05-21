@@ -1,6 +1,8 @@
 package io.kestra.executor.handler;
 
-import io.kestra.core.models.executions.Execution;
+import io.kestra.core.executor.command.Create;
+import io.kestra.core.executor.command.ExecutionCommand;
+import io.kestra.core.models.executions.ExecutionId;
 import io.kestra.core.models.triggers.multipleflows.MultipleConditionStateStore;
 import io.kestra.core.queues.DispatchQueueInterface;
 import io.kestra.core.queues.QueueException;
@@ -22,7 +24,7 @@ public class MultipleConditionEventMessageHandler implements MessageHandler<Mult
     private MultipleConditionStateStore multipleConditionStateStore;
 
     @Inject
-    private DispatchQueueInterface<Execution> executionQueue;
+    private DispatchQueueInterface<ExecutionCommand> executionCommandQueue;
 
     @Override
     public void handle(MultipleConditionEvent message) {
@@ -30,7 +32,11 @@ public class MultipleConditionEventMessageHandler implements MessageHandler<Mult
             .forEach(exec ->
             {
                 try {
-                    executionQueue.emit(exec);
+                    executionCommandQueue.emit(Create.of(new ExecutionId(exec.getTenantId(), exec.getNamespace(), exec.getFlowId(), exec.getId(), exec.getFlowRevision()))
+                        .withKind(exec.getKind())
+                        .withTrigger(exec.getTrigger())
+                        .withLabels(exec.getLabels())
+                        .withInputs(exec.getInputs()));
                 } catch (QueueException e) {
                     log.error("Unable to emit the execution {}", exec.getId(), e);
                 }

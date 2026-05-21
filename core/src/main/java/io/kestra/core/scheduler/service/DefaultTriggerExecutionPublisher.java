@@ -4,7 +4,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.kestra.core.events.CrudEvent;
+import io.kestra.core.executor.command.Create;
+import io.kestra.core.executor.command.ExecutionCommand;
 import io.kestra.core.models.executions.Execution;
+import io.kestra.core.models.executions.ExecutionId;
 import io.kestra.core.models.flows.State;
 import io.kestra.core.queues.DispatchQueueInterface;
 import io.kestra.core.queues.QueueException;
@@ -20,31 +23,40 @@ public class DefaultTriggerExecutionPublisher implements TriggerExecutionPublish
     private static final Logger LOG = LoggerFactory.getLogger(DefaultTriggerExecutionPublisher.class);
 
     private final ApplicationEventPublisher<CrudEvent<Execution>> executionEventPublisher;
-    private final DispatchQueueInterface<Execution> executionQueue;
+    private final DispatchQueueInterface<ExecutionCommand> executionCommandQueue;
     private final RunContextLoggerFactory runContextLoggerFactory;
 
     @Inject
     public DefaultTriggerExecutionPublisher(ApplicationEventPublisher<CrudEvent<Execution>> executionEventPublisher,
-        DispatchQueueInterface<Execution> executionQueue,
+        DispatchQueueInterface<ExecutionCommand> executionCommandQueue,
         RunContextLoggerFactory runContextLoggerFactory) {
         this.executionEventPublisher = executionEventPublisher;
-        this.executionQueue = executionQueue;
+        this.executionCommandQueue = executionCommandQueue;
         this.runContextLoggerFactory = runContextLoggerFactory;
     }
 
     public void send(final Execution execution) {
         try {
-            this.executionQueue.emit(execution);
+            this.executionCommandQueue.emit(toCreate(execution));
             this.executionEventPublisher.publishEvent(CrudEvent.create(execution));// FIXME probably a bug, should not exist here
         } catch (QueueException e) {
             try {
                 Execution failedExecution = fail(execution, e);
-                this.executionQueue.emit(failedExecution);
+                this.executionCommandQueue.emit(toCreate(failedExecution).withStateType(State.Type.FAILED));
                 this.executionEventPublisher.publishEvent(CrudEvent.create(execution));// FIXME same
             } catch (QueueException ex) {
                 LOG.error("Unable to emit the execution", ex);
             }
         }
+    }
+
+    private Create toCreate(Execution execution) {
+        return Create.of(new ExecutionId(execution.getTenantId(), execution.getNamespace(), execution.getFlowId(), execution.getId(), execution.getFlowRevision()))
+            .withKind(execution.getKind())
+            .withTrigger(execution.getTrigger())
+            .withLabels(execution.getLabels())
+            .withInputs(execution.getInputs())
+            .withScheduleDate(execution.getScheduleDate());
     }
 
     private Execution fail(Execution message, Exception e) {
