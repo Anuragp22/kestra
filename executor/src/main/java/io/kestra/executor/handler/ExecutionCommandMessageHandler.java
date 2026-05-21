@@ -7,9 +7,14 @@ import io.kestra.core.exceptions.InternalException;
 import io.kestra.core.executor.command.*;
 import io.kestra.core.async.AsyncOperationProcessedEvent;
 import io.kestra.core.async.AsyncOperationService;
+import io.kestra.core.killswitch.EvaluationType;
+import io.kestra.core.killswitch.KillSwitchService;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.executions.TaskRun;
+import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.flows.State;
+import io.kestra.core.runners.ExecutionEvent;
+import io.kestra.core.runners.ExecutionEventType;
 import io.kestra.core.runners.FlowMetaStoreInterface;
 import io.kestra.core.services.ExecutionService;
 import io.kestra.core.services.TaskOutputService;
@@ -30,33 +35,36 @@ public class ExecutionCommandMessageHandler implements ExecutorMessageHandler<Ex
     private final FlowMetaStoreInterface flowMetaStore;
     private final TaskOutputService taskOutputService;
     private final AsyncOperationService asyncOperationService;
-    private final CreateCommandHandler createCommandHandler;
-    private final ReplayCommandHandler replayCommandHandler;
+    private final ExecutionEventMessageHandler executionEventMessageHandler;
+    private final KillSwitchService killSwitchService;
 
     @Inject
-    public ExecutionCommandMessageHandler(ExecutionService executionService,
+    public ExecutionCommandMessageHandler(
+        ExecutionService executionService,
         ExecutionStateStore executionStateStore,
         FlowMetaStoreInterface flowMetaStore,
         TaskOutputService taskOutputService,
         AsyncOperationService asyncOperationService,
-        CreateCommandHandler createCommandHandler,
-        ReplayCommandHandler replayCommandHandler) {
+        ExecutionEventMessageHandler executionEventMessageHandler,
+        KillSwitchService killSwitchService) {
         this.executionService = executionService;
         this.executionStateStore = executionStateStore;
         this.flowMetaStore = flowMetaStore;
         this.taskOutputService = taskOutputService;
         this.asyncOperationService = asyncOperationService;
-        this.createCommandHandler = createCommandHandler;
-        this.replayCommandHandler = replayCommandHandler;
+        this.executionEventMessageHandler = executionEventMessageHandler;
+        this.killSwitchService = killSwitchService;
     }
 
     @Override
     public Optional<ExecutorContext> handle(ExecutionCommand message) {
+        // Create and Replay bootstrap a new execution — they cannot go through executionStateStore.lock()
+        // because the execution doesn't exist yet. All other commands mutate an existing execution via lock.
         if (message instanceof Create createCommand) {
-            return createCommandHandler.handle(createCommand);
+            return handleCreate(createCommand);
         }
         if (message instanceof Replay replayCommand) {
-            return replayCommandHandler.handle(replayCommand);
+            return handleReplay(replayCommand);
         }
         return executionStateStore.lock(message.executionId(), execution ->
         {
@@ -100,6 +108,92 @@ public class ExecutionCommandMessageHandler implements ExecutorMessageHandler<Ex
                 asyncOperationService.emitProcessedIfAsync(message, message.tenantId(), message.executionId(), outcome, error);
             }
         });
+    }
+
+    private Optional<ExecutorContext> handleCreate(Create command) {
+        AsyncOperationProcessedEvent.Outcome outcome = AsyncOperationProcessedEvent.Outcome.SUCCEEDED;
+        String error = null;
+        try {
+            var flow = flowMetaStore
+                .findById(command.tenantId(), command.namespace(), command.flowId(), Optional.ofNullable(command.flowRevision()))
+                .orElseThrow(() -> new FlowNotFoundException(command.executionFullId(), command.flowRevision()));
+
+            var newExecution = executionService.create(command, flow);
+
+            // Persist the execution before processing the state-machine event.
+            // Any persistence failure is a hard error — the execution must exist in the DB
+            // before we signal success back to the caller.
+            executionStateStore.create(newExecution);
+
+            // Re-evaluate the kill switch now that the execution exists in the DB.
+            // The pre-check in DefaultExecutor.executionCommandQueue() skips non-existent executions,
+            // so this is the definitive check for newly created ones.
+            EvaluationType evaluationType = killSwitchService.evaluate(newExecution);
+            if (evaluationType != EvaluationType.PASS) {
+                log.warn("Kill switch active ({}): execution {} persisted in CREATED state but will not be processed", evaluationType, newExecution.getId());
+                return Optional.empty();
+            }
+
+            var eventType = newExecution.getState().isCreated() ? ExecutionEventType.CREATED : ExecutionEventType.UPDATED;
+            return executionEventMessageHandler.handle(new ExecutionEvent(newExecution, eventType));
+        } catch (Exception e) {
+            log.error("Unable to process Create command for execution {}: ignoring command with eventId {}",
+                command.executionId(), command.eventId(), e);
+            outcome = AsyncOperationProcessedEvent.Outcome.FAILED;
+            error = e.getMessage();
+            return Optional.empty();
+        } finally {
+            asyncOperationService.emitProcessedIfAsync(command, command.tenantId(), command.executionId(), outcome, error);
+        }
+    }
+
+    private Optional<ExecutorContext> handleReplay(Replay command) {
+        AsyncOperationProcessedEvent.Outcome outcome = AsyncOperationProcessedEvent.Outcome.SUCCEEDED;
+        String error = null;
+        try {
+            var raw = executionStateStore.findById(command.sourceExecutionId());
+            if (raw == null) {
+                throw new IllegalStateException("Source execution not found: " + command.sourceExecutionId());
+            }
+
+            // Apply inputs override if the controller merged new inputs before emitting the command
+            final var sourceExecution = command.inputs() != null ? raw.withInputs(command.inputs()) : raw;
+
+            // findByExecutionThenInjectDefaults returns FlowWithSource (a Flow subtype);
+            // findById returns FlowInterface — cast is safe since all concrete implementations return Flow.
+            Flow flow;
+            if (command.revision() != null) {
+                flow = (Flow) flowMetaStore
+                    .findById(command.tenantId(), command.namespace(), command.flowId(), Optional.of(command.revision()))
+                    .orElseThrow(() -> new FlowNotFoundException(sourceExecution));
+            } else {
+                flow = flowMetaStore
+                    .findByExecutionThenInjectDefaults(sourceExecution)
+                    .orElseThrow(() -> new FlowNotFoundException(sourceExecution));
+            }
+
+            var newExecution = executionService.replay(
+                sourceExecution,
+                flow,
+                command.taskRunId(),
+                command.revision(),
+                Optional.ofNullable(command.breakpoints()),
+                true,
+                command.executionId()
+            );
+
+            executionStateStore.create(newExecution);
+
+            return executionEventMessageHandler.handle(new ExecutionEvent(newExecution, ExecutionEventType.CREATED));
+        } catch (Exception e) {
+            log.error("Unable to process Replay command for new execution {}: ignoring command with eventId {}",
+                command.executionId(), command.eventId(), e);
+            outcome = AsyncOperationProcessedEvent.Outcome.FAILED;
+            error = e.getMessage();
+            return Optional.empty();
+        } finally {
+            asyncOperationService.emitProcessedIfAsync(command, command.tenantId(), command.executionId(), outcome, error);
+        }
     }
 
     /**
