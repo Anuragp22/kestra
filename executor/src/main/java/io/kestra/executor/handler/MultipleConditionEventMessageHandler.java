@@ -32,11 +32,16 @@ public class MultipleConditionEventMessageHandler implements MessageHandler<Mult
             .forEach(exec ->
             {
                 try {
-                    executionCommandQueue.emit(Create.of(new ExecutionId(exec.getTenantId(), exec.getNamespace(), exec.getFlowId(), exec.getId(), exec.getFlowRevision()))
+                    Create cmd = Create.of(new ExecutionId(exec.getTenantId(), exec.getNamespace(), exec.getFlowId(), exec.getId(), exec.getFlowRevision()))
                         .withKind(exec.getKind())
                         .withTrigger(exec.getTrigger())
                         .withLabels(exec.getLabels())
-                        .withInputs(exec.getInputs()));
+                        .withInputs(exec.getInputs());
+                    // Preserve terminal state (e.g. FAILED when trigger input rendering fails).
+                    if (exec.getState().isTerminated()) {
+                        cmd = cmd.withStateType(exec.getState().getCurrent());
+                    }
+                    executionCommandQueue.emit(cmd);
                 } catch (QueueException e) {
                     log.error("Unable to emit the execution {}", exec.getId(), e);
                 }

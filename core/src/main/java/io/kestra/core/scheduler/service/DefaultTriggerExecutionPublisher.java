@@ -37,7 +37,13 @@ public class DefaultTriggerExecutionPublisher implements TriggerExecutionPublish
 
     public void send(final Execution execution) {
         try {
-            this.executionCommandQueue.emit(toCreate(execution));
+            Create cmd = toCreate(execution);
+            // If the trigger already produced a terminal execution (e.g. input rendering failed),
+            // preserve that state so the executor doesn't restart it from CREATED.
+            if (execution.getState().isTerminated()) {
+                cmd = cmd.withStateType(execution.getState().getCurrent());
+            }
+            this.executionCommandQueue.emit(cmd);
         } catch (QueueException e) {
             try {
                 Execution failedExecution = fail(execution, e);

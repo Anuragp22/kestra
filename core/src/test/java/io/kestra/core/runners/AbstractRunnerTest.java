@@ -5,14 +5,14 @@ import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeoutException;
 
-import io.kestra.core.executor.command.Create;
-import io.kestra.core.executor.command.ExecutionCommand;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junitpioneer.jupiter.RetryingTest;
 import org.slf4j.event.Level;
 
 import io.kestra.core.exceptions.InternalException;
+import io.kestra.core.executor.command.Create;
+import io.kestra.core.executor.command.ExecutionCommand;
 import io.kestra.core.junit.annotations.ExecuteFlow;
 import io.kestra.core.junit.annotations.KestraTest;
 import io.kestra.core.junit.annotations.LoadFlows;
@@ -150,13 +150,13 @@ public abstract class AbstractRunnerTest {
     }
 
     @Test
-    @LoadFlows({"flows/valids/replay-loop.yaml"})
+    @LoadFlows({ "flows/valids/replay-loop.yaml" })
     void replayLoop() throws Exception {
         restartCaseTest.replayLoop();
     }
 
     @Test
-    @LoadFlows({"flows/valids/restart-loop.yaml"})
+    @LoadFlows({ "flows/valids/restart-loop.yaml" })
     void restartLoop() throws Exception {
         restartCaseTest.restartLoop();
     }
@@ -180,7 +180,7 @@ public abstract class AbstractRunnerTest {
     }
 
     @Test
-    @LoadFlows({"flows/valids/restart-parent-loop.yaml", "flows/valids/restart-child.yaml" })
+    @LoadFlows({ "flows/valids/restart-parent-loop.yaml", "flows/valids/restart-child.yaml" })
     protected void restartSubflowWithLoop() throws Exception {
         restartCaseTest.restartSubflowWithLoop();
     }
@@ -267,13 +267,16 @@ public abstract class AbstractRunnerTest {
     }
 
     @Test
-    @LoadFlows({ "flows/valids/flow-trigger-multiple-depends-on-flow-a.yaml", "flows/valids/flow-trigger-fire-once-true-flow-b.yaml", "flows/valids/flow-trigger-multiple-depends-on-flow-listen.yaml" })
+    @LoadFlows(
+        { "flows/valids/flow-trigger-multiple-depends-on-flow-a.yaml", "flows/valids/flow-trigger-fire-once-true-flow-b.yaml",
+            "flows/valids/flow-trigger-multiple-depends-on-flow-listen.yaml" }
+    )
     void flowTriggerMultipleDependsOn() throws Exception {
         multipleConditionTriggerCaseTest.flowTriggerMultipleDependsOn();
     }
 
     @Test
-    @LoadFlows({"flows/valids/flow-trigger-fire-once-true-flow-a.yaml", "flows/valids/flow-trigger-fire-once-true-flow-b.yaml", "flows/valids/flow-trigger-fire-once-true-flow-listen.yaml"})
+    @LoadFlows({ "flows/valids/flow-trigger-fire-once-true-flow-a.yaml", "flows/valids/flow-trigger-fire-once-true-flow-b.yaml", "flows/valids/flow-trigger-fire-once-true-flow-listen.yaml" })
     void flowTriggerDependsOnFireOnceTrue() throws Exception {
         multipleConditionTriggerCaseTest.flowTriggerDependsOnFireOnceTrue();
     }
@@ -297,31 +300,37 @@ public abstract class AbstractRunnerTest {
     }
 
     @Test
-    @LoadFlows({
-        "flows/valids/flow-trigger-any-mode-flow-a.yaml",
-        "flows/valids/flow-trigger-any-mode-flow-b.yaml",
-        "flows/valids/flow-trigger-any-mode-flow-listen.yaml"
-    })
+    @LoadFlows(
+        {
+            "flows/valids/flow-trigger-any-mode-flow-a.yaml",
+            "flows/valids/flow-trigger-any-mode-flow-b.yaml",
+            "flows/valids/flow-trigger-any-mode-flow-listen.yaml"
+        }
+    )
     void flowTriggerAnyMode() throws Exception {
         multipleConditionTriggerCaseTest.flowTriggerAnyMode();
     }
 
     @Test
-    @LoadFlows({
-        "flows/valids/flow-trigger-at-least-mode-flow-a.yaml",
-        "flows/valids/flow-trigger-at-least-mode-flow-b.yaml",
-        "flows/valids/flow-trigger-at-least-mode-flow-c.yaml",
-        "flows/valids/flow-trigger-at-least-mode-flow-listen.yaml"
-    })
+    @LoadFlows(
+        {
+            "flows/valids/flow-trigger-at-least-mode-flow-a.yaml",
+            "flows/valids/flow-trigger-at-least-mode-flow-b.yaml",
+            "flows/valids/flow-trigger-at-least-mode-flow-c.yaml",
+            "flows/valids/flow-trigger-at-least-mode-flow-listen.yaml"
+        }
+    )
     void flowTriggerAtLeastMode() throws Exception {
         multipleConditionTriggerCaseTest.flowTriggerAtLeastMode();
     }
 
     @Test
-    @LoadFlows({
-        "flows/valids/flow-trigger-invalid-inputs-flow-a.yaml",
-        "flows/valids/flow-trigger-invalid-inputs-flow-listen.yaml"
-    })
+    @LoadFlows(
+        {
+            "flows/valids/flow-trigger-invalid-inputs-flow-a.yaml",
+            "flows/valids/flow-trigger-invalid-inputs-flow-listen.yaml"
+        }
+    )
     void flowTriggerWithInvalidInputs() throws Exception {
         multipleConditionTriggerCaseTest.flowTriggerWithInvalidInputs();
     }
@@ -367,7 +376,7 @@ public abstract class AbstractRunnerTest {
     }
 
     @Test
-    @LoadFlows({"flows/valids/working-directory-loop.yaml"})
+    @LoadFlows({ "flows/valids/working-directory-loop.yaml" })
     public void workingDirectoryLoop() throws Exception {
         workingDirectoryTest.loop(runnerUtils);
     }
@@ -587,7 +596,7 @@ public abstract class AbstractRunnerTest {
     }
 
     @Test
-    @ExecuteFlow("flows/valids/loop-null.yaml" )
+    @ExecuteFlow("flows/valids/loop-null.yaml")
     protected void loopWithNull(Execution execution) {
         loopCaseTest.loopWithNull(execution);
     }
@@ -735,11 +744,12 @@ public abstract class AbstractRunnerTest {
 
         executionCommandQueue.emit(Create.of(TestsUtils.mockFlow().toFlowId()));
 
-        // We expect the initial execution message only
+        // The flow does not exist in the repository: handleCreate logs an error and returns empty.
+        // We expect zero execution events — and certainly no infinite loop.
         await()
-            .during(Duration.ofMillis(500)) // Wait some time to ensure no infinite loop occurs
-            .atMost(Duration.ofSeconds(10))
-            .until(() -> executions.size() == 1);
+            .during(Duration.ofMillis(500)) // Wait to ensure no event is ever emitted
+            .atMost(Duration.ofSeconds(1))
+            .until(executions::isEmpty);
     }
 
     @Test

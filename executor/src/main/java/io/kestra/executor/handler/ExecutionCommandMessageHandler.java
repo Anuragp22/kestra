@@ -2,11 +2,11 @@ package io.kestra.executor.handler;
 
 import java.util.Optional;
 
+import io.kestra.core.async.AsyncOperationProcessedEvent;
+import io.kestra.core.async.AsyncOperationService;
 import io.kestra.core.exceptions.FlowNotFoundException;
 import io.kestra.core.exceptions.InternalException;
 import io.kestra.core.executor.command.*;
-import io.kestra.core.async.AsyncOperationProcessedEvent;
-import io.kestra.core.async.AsyncOperationService;
 import io.kestra.core.killswitch.EvaluationType;
 import io.kestra.core.killswitch.KillSwitchService;
 import io.kestra.core.models.Label;
@@ -136,7 +136,7 @@ public class ExecutionCommandMessageHandler implements ExecutorMessageHandler<Ex
                 return Optional.empty();
             }
 
-            // Persist the execution — IGNORE and PASS both write CREATED state.
+            // Persist the execution.
             // Any persistence failure is a hard error before we signal success to the caller.
             executionStateStore.create(newExecution);
 
@@ -145,11 +145,19 @@ public class ExecutionCommandMessageHandler implements ExecutorMessageHandler<Ex
                 return Optional.empty();
             }
 
+            // A terminal execution (e.g. a trigger that failed to render its inputs) needs no
+            // further processing by the executor — it is already in its final state.
+            if (newExecution.getState().isTerminated()) {
+                return Optional.empty();
+            }
+
             var eventType = newExecution.getState().isCreated() ? ExecutionEventType.CREATED : ExecutionEventType.UPDATED;
             return executionEventMessageHandler.handle(new ExecutionEvent(newExecution, eventType));
         } catch (Exception e) {
-            log.error("Unable to process Create command for execution {}: ignoring command with eventId {}",
-                command.executionId(), command.eventId(), e);
+            log.error(
+                "Unable to process Create command for execution {}: ignoring command with eventId {}",
+                command.executionId(), command.eventId(), e
+            );
             outcome = AsyncOperationProcessedEvent.Outcome.FAILED;
             error = e.getMessage();
             return Optional.empty();
@@ -197,8 +205,10 @@ public class ExecutionCommandMessageHandler implements ExecutorMessageHandler<Ex
 
             return executionEventMessageHandler.handle(new ExecutionEvent(newExecution, ExecutionEventType.CREATED));
         } catch (Exception e) {
-            log.error("Unable to process Replay command for new execution {}: ignoring command with eventId {}",
-                command.executionId(), command.eventId(), e);
+            log.error(
+                "Unable to process Replay command for new execution {}: ignoring command with eventId {}",
+                command.executionId(), command.eventId(), e
+            );
             outcome = AsyncOperationProcessedEvent.Outcome.FAILED;
             error = e.getMessage();
             return Optional.empty();
