@@ -9,6 +9,7 @@ import io.kestra.core.async.AsyncOperationProcessedEvent;
 import io.kestra.core.async.AsyncOperationService;
 import io.kestra.core.killswitch.EvaluationType;
 import io.kestra.core.killswitch.KillSwitchService;
+import io.kestra.core.models.Label;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.executions.TaskRun;
 import io.kestra.core.models.flows.Flow;
@@ -120,17 +121,27 @@ public class ExecutionCommandMessageHandler implements ExecutorMessageHandler<Ex
 
             var newExecution = executionService.create(command, flow);
 
-            // Persist the execution before processing the state-machine event.
-            // Any persistence failure is a hard error — the execution must exist in the DB
-            // before we signal success back to the caller.
+            // Evaluate the kill switch before persisting: a brand-new execution has no running
+            // tasks, so we can write it directly in its terminal state without going through
+            // the KILLING intermediate state or the kill queue.
+            EvaluationType evaluationType = killSwitchService.evaluate(newExecution);
+            if (evaluationType == EvaluationType.KILL) {
+                log.warn("Kill switch active (KILL): killing execution {}", newExecution.getId());
+                executionStateStore.create(newExecution.withState(State.Type.KILLED).addLabel(new Label(Label.KILL_SWITCH, "killed")));
+                return Optional.empty();
+            }
+            if (evaluationType == EvaluationType.CANCEL) {
+                log.warn("Kill switch active (CANCEL): cancelling execution {}", newExecution.getId());
+                executionStateStore.create(newExecution.withState(State.Type.CANCELLED).addLabel(new Label(Label.KILL_SWITCH, "cancelled")));
+                return Optional.empty();
+            }
+
+            // Persist the execution — IGNORE and PASS both write CREATED state.
+            // Any persistence failure is a hard error before we signal success to the caller.
             executionStateStore.create(newExecution);
 
-            // Re-evaluate the kill switch now that the execution exists in the DB.
-            // The pre-check in DefaultExecutor.executionCommandQueue() skips non-existent executions,
-            // so this is the definitive check for newly created ones.
-            EvaluationType evaluationType = killSwitchService.evaluate(newExecution);
-            if (evaluationType != EvaluationType.PASS) {
-                log.warn("Kill switch active ({}): execution {} persisted in CREATED state but will not be processed", evaluationType, newExecution.getId());
+            if (evaluationType == EvaluationType.IGNORE) {
+                log.warn("Kill switch active (IGNORE): ignoring execution {}", newExecution.getId());
                 return Optional.empty();
             }
 
