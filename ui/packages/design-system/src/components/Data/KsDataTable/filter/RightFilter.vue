@@ -63,6 +63,22 @@
         </KsPopover>
 
         <KsTooltip
+            :content="filter.viewMode.value === 'chip' ? $t('filter.raw_view') : $t('filter.chip_view')"
+            placement="top"
+        >
+            <KsButton
+                type="default"
+                size="default"
+                class="view-mode-btn"
+                :disabled="filter.readOnly.value"
+                @click="filter.setViewMode(filter.viewMode.value === 'chip' ? 'raw' : 'chip')"
+                :aria-label="filter.viewMode.value === 'chip' ? $t('filter.raw_view') : $t('filter.chip_view')"
+            >
+                {{ filter.viewMode.value === "chip" ? "{ }" : "≡" }}
+            </KsButton>
+        </KsTooltip>
+
+        <KsTooltip
             v-if="filter.buttons.value?.tableOptions?.shown !== false"
             :content="$t('filter.show data options tooltip')"
             placement="top"
@@ -156,6 +172,15 @@
         padding: 0.5rem;
         border-radius: 0.25rem;
         font-size: var(--ks-font-size-base);
+        color: var(--ks-content-primary) !important;
+    }
+
+    .view-mode-btn {
+        box-shadow: var(--ks-box-shadow);
+        margin: 0;
+        padding: 0.375rem 0.5rem;
+        font-family: var(--ks-font-family-monospace, monospace);
+        font-size: var(--ks-font-size-sm);
         color: var(--ks-content-primary) !important;
     }
 
