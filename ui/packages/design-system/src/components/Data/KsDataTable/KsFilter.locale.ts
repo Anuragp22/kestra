@@ -45,6 +45,7 @@ export default {
             "unwrap_group": "Ungroup",
             "raw_view": "Edit as text",
             "chip_view": "Edit visually",
+            "chip_view_locked": "This query is too complex for the visual editor",
             "raw_apply": "Apply",
             "raw_revert": "Revert",
             "raw_placeholder": "filters[field][op]=value…",

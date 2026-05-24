@@ -50,6 +50,13 @@
         defaultScope?: boolean;
         defaultTimeRange?: boolean;
         defaultDuration?: string;
+        /**
+         * Initial view mode. `'chip'` (default) shows the structured filter UI;
+         * `'raw'` opens the URL editor. Either way, the user can toggle via the
+         * `{ }` / `≡` button — unless the URL has nesting the chip UI can't render,
+         * in which case the view is locked on raw.
+         */
+        defaultViewMode?: "chip" | "raw";
     }>(), {
         buttons: () => ({}),
         tableOptions: () => ({}),
@@ -61,6 +68,7 @@
         defaultScope: undefined,
         defaultTimeRange: undefined,
         defaultDuration: undefined,
+        defaultViewMode: "chip",
     })
 
     const emits = defineEmits<{
@@ -111,7 +119,7 @@
     const editingFilter = ref<SavedFilter | undefined>(undefined)
 
     /** View mode: 'chip' is the structured UI; 'raw' shows the URL query in an editor. */
-    const viewMode = ref<"chip" | "raw">("chip")
+    const viewMode = ref<"chip" | "raw">(props.defaultViewMode)
     const setViewMode = (mode: "chip" | "raw") => {
         viewMode.value = mode
     }
