@@ -211,7 +211,7 @@
 
 <script>
     import LogLine from "./LogLine.vue"
-    import {State} from "@kestra-io/design-system"
+    import {State, levelToRequestParams} from "@kestra-io/design-system"
     import _xor from "lodash/xor"
     import _groupBy from "lodash/groupBy"
     import moment from "moment"
@@ -255,9 +255,10 @@
                 type: String,
                 default: undefined,
             },
-            level: {
-                type: String,
-                default: "INFO",
+            levelFilter: {
+                // LevelFilterValue: { value: "INFO", direction: "min" | "max" }
+                type: Object,
+                default: () => ({value: "INFO", direction: "min"}),
             },
             filter: {
                 type: String,
@@ -323,7 +324,7 @@
             "shownAttemptsUid.length": function (openedTaskrunsCount) {
                 this.$emit("opened-taskruns-count", openedTaskrunsCount)
             },
-            level: function () {
+            levelFilter: function () {
                 this.rawLogs = []
                 if(this.followedExecution)
                     this.loadLogs(this.followedExecution.id)
@@ -446,13 +447,16 @@
                 )
             },
             params() {
-                let params = {minLevel: this.level}
+                let params = {...levelToRequestParams(this.levelFilter)}
 
                 if (this.taskRunId) {
-                    params.taskId = this.taskRunById[this.taskRunId]?.taskId
+                    const taskId = this.taskRunById[this.taskRunId]?.taskId
+                    if (taskId) {
+                        params["filters[taskId][EQUALS]"] = taskId
+                    }
 
-                    if (this.forcedAttemptNumber) {
-                        params.attempt = this.forcedAttemptNumber
+                    if (this.forcedAttemptNumber !== undefined && this.forcedAttemptNumber !== null) {
+                        params["filters[attemptNumber][EQUALS]"] = this.forcedAttemptNumber
                     }
                 }
 
@@ -809,13 +813,15 @@
                 return !(this.taskRunId && this.taskRunId !== currentTaskRun.id)
             },
             loadLogs(executionId) {
+                const params = {...levelToRequestParams(this.levelFilter)}
+                const taskId = this.taskRunById[this.taskRunId]?.taskId
+                if (taskId) {
+                    params["filters[taskId][EQUALS]"] = taskId
+                }
                 this.executionsStore
                     .loadLogs({
                         executionId,
-                        params: {
-                            minLevel: this.level,
-                            taskId: this.taskRunById[this.taskRunId]?.taskId,
-                        },
+                        params,
                     })
                     .then((logs) => {
                         // `loadLogs` returns a paginated response `{ results, total }`, and `rawLogs` must be an array of log lines.

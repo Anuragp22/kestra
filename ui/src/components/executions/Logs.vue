@@ -55,7 +55,7 @@
         <TaskRunDetails
             v-if="!raw_view"
             ref="logs"
-            :level="effectiveLevel"
+            :levelFilter="effectiveLevel"
             :excludeMetas="['namespace', 'flowId', 'taskId', 'executionId']"
             :filter="filter"
             :levelToHighlight="cursorLogLevel"
@@ -130,6 +130,7 @@
     import {storageKeys} from "../../utils/constants"
     import {
         hasUnsupportedRouteLevelComparator,
+        levelToRequestParams,
         normalizeRouteLevelFilter,
         readRouteLevelFilter,
     } from "@kestra-io/design-system"
@@ -164,9 +165,9 @@
                 routeValue: routeLevel,
                 effectiveValue: effectiveLevel,
             } = useRouteFilterPolicy({
-                defaultValue: () => defaultLogLevel.value,
+                defaultValue: () => ({value: defaultLogLevel.value, direction: "min"}),
                 applyDefaultIfMissing: () => true,
-                fallbackValue: () => "TRACE",
+                fallbackValue: () => ({value: "TRACE", direction: "min"}),
                 readFromRoute: readRouteLevelFilter,
                 writeToRoute: normalizeRouteLevelFilter,
                 hasUnsupportedRouteValue: hasUnsupportedRouteLevelComparator,
@@ -279,17 +280,13 @@
             loadLogs(){
                 this.executionsStore.loadLogs({
                     executionId: this.executionId,
-                    params: {
-                        minLevel: this.effectiveLevel,
-                    },
+                    params: levelToRequestParams(this.effectiveLevel),
                 })
             },
             downloadContent() {
                 this.executionsStore.downloadLogs({
                     executionId: this.executionId,
-                    params: {
-                        minLevel: this.effectiveLevel,
-                    },
+                    params: levelToRequestParams(this.effectiveLevel),
                 }).then((response) => {
                     Utils.downloadUrl(window.URL.createObjectURL(new Blob([response])), this.downloadName)
                 })
@@ -297,9 +294,7 @@
             copyAllLogs() {
                 this.executionsStore.downloadLogs({
                     executionId: this.executionId,
-                    params: {
-                        minLevel: this.effectiveLevel,
-                    },
+                    params: levelToRequestParams(this.effectiveLevel),
                 }).then((response) => {
                     Utils.copy(response)
                 })

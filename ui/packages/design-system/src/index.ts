@@ -131,6 +131,11 @@ export {
     hasUnsupportedRouteLevelComparator,
     readAppliedLevelFilter,
     normalizeRouteLevelFilter,
+    levelToRequestParams,
+} from "./components/Data/KsDataTable/filter/utils/logLevelQuery"
+export type {
+    LevelFilterValue,
+    LevelFilterDirection,
 } from "./components/Data/KsDataTable/filter/utils/logLevelQuery"
 export type {
     FilterConfiguration,
