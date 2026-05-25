@@ -3,12 +3,14 @@ package io.kestra.webserver.utils;
 import java.util.*;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import io.kestra.core.exceptions.InvalidQueryFiltersException;
 import io.kestra.core.models.QueryFilter;
 import io.kestra.core.repositories.ArrayListTotal;
+import io.kestra.core.utils.RegexUtils;
 
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.data.model.Pageable;
@@ -35,10 +37,6 @@ public final class Searchable<T> {
         this.searchableExtractors = searchableExtractors;
         this.sortableExtractors = sortableExtractors;
         this.queryFilterPredicateMap = queryFilterPredicateMap;
-    }
-
-    public Set<QueryFilterPredicateKey>     registeredPredicateKeys() {
-        return queryFilterPredicateMap.keySet();
     }
 
     public ArrayListTotal<T> filter(
@@ -75,19 +73,7 @@ public final class Searchable<T> {
         }
 
         if (queryFilters != null && !queryFilters.isEmpty()) {
-            results = results.filter(item ->
-                queryFilters.stream().allMatch(queryFilter -> {
-                    BiPredicate<T, Object> predicate = queryFilterPredicateMap.get(
-                        new QueryFilterPredicateKey(queryFilter.field(), queryFilter.operation())
-                    );
-                    if (predicate == null) {
-                        throw new InvalidQueryFiltersException(
-                            "Unsupported operation for " + queryFilter.field() + ": " + queryFilter.operation()
-                        );
-                    }
-                    return predicate.test(item, queryFilter.value());
-                })
-            );
+            results = results.filter(item -> matches(item, queryFilters));
         }
 
         Pageable pageable = PageableUtils.from(page, size, sort, null);
@@ -120,6 +106,23 @@ public final class Searchable<T> {
         return ArrayListTotal.of(pageable, results.toList());
     }
 
+    public boolean matches(T item, @Nullable List<QueryFilter> queryFilters) {
+        if (queryFilters == null || queryFilters.isEmpty()) {
+            return true;
+        }
+        return queryFilters.stream().allMatch(queryFilter -> {
+            BiPredicate<T, Object> predicate = queryFilterPredicateMap.get(
+                new QueryFilterPredicateKey(queryFilter.field(), queryFilter.operation())
+            );
+            if (predicate == null) {
+                throw new InvalidQueryFiltersException(
+                    "Unsupported operation for " + queryFilter.field() + ": " + queryFilter.operation()
+                );
+            }
+            return predicate.test(item, queryFilter.value());
+        });
+    }
+
     public static <T> Builder<T> builder() {
         return new Builder<>();
     }
@@ -138,6 +141,53 @@ public final class Searchable<T> {
             F field, O operator, BiPredicate<T, Object> predicate) {
             this.queryFilterPredicateMap.put(new QueryFilterPredicateKey(field, operator), predicate);
             return this;
+        }
+
+        public <F extends QueryFilter.Field, O extends QueryFilter.Op> Builder<T> searchableQueryFilterExtractor(
+            F field, O operator, Function<? super T, ?> fieldFunction) {
+            BiPredicate<Object, Object> defaultPredicate = defaultPredicateFor(operator, field);
+            BiPredicate<T, Object> predicate = (item, value) ->
+                defaultPredicate.test(fieldFunction.apply(item), value);
+
+            this.queryFilterPredicateMap.put(new QueryFilterPredicateKey(field, operator), predicate);
+            return this;
+        }
+
+        private static BiPredicate<Object, Object> defaultPredicateFor(QueryFilter.Op operator, QueryFilter.Field field) {
+            return switch (operator) {
+                case EQUALS -> (fieldValue, queryValue) ->
+                    fieldValue != null && fieldValue.toString().equals(queryValue.toString());
+                case NOT_EQUALS -> (fieldValue, queryValue) ->
+                    fieldValue == null || !fieldValue.toString().equals(queryValue.toString());
+                case CONTAINS -> (fieldValue, queryValue) ->
+                    fieldValue != null && fieldValue.toString().contains(queryValue.toString());
+                case STARTS_WITH -> (fieldValue, queryValue) ->
+                    fieldValue != null && fieldValue.toString().startsWith(queryValue.toString());
+                case ENDS_WITH -> (fieldValue, queryValue) ->
+                    fieldValue != null && fieldValue.toString().endsWith(queryValue.toString());
+                case REGEX -> (fieldValue, queryValue) ->
+                    fieldValue != null && RegexUtils.matches(queryValue.toString(), fieldValue.toString());
+                case IN -> (fieldValue, queryValue) ->
+                    fieldValue != null
+                        && queryValue instanceof List<?> list
+                        && list.stream().map(Object::toString).anyMatch(fieldValue.toString()::equals);
+                case NOT_IN -> (fieldValue, queryValue) ->
+                    fieldValue == null
+                        || !(queryValue instanceof List<?> list)
+                        || list.stream().map(Object::toString).noneMatch(fieldValue.toString()::equals);
+                case PREFIX -> (fieldValue, queryValue) -> {
+                    if (fieldValue == null) {
+                        return false;
+                    }
+                    String fv = fieldValue.toString();
+                    String qv = queryValue.toString();
+                    return fv.equals(qv) || fv.startsWith(qv + ".");
+                };
+                default -> throw new UnsupportedOperationException(
+                    "Operator " + operator + " has no default extractor for field " + field
+                        + ". Register an explicit BiPredicate via the (field, operator, BiPredicate) overload."
+                );
+            };
         }
 
         @SuppressWarnings("unchecked")

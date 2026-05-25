@@ -251,6 +251,12 @@ public record QueryFilter(
                 return List.of(Op.EQUALS, Op.NOT_EQUALS, Op.CONTAINS, Op.STARTS_WITH, Op.ENDS_WITH, Op.IN, Op.NOT_IN);
             }
         },
+        ATTEMPT_NUMBER("attemptNumber") {
+            @Override
+            public List<Op> supportedOp() {
+                return List.of(Op.EQUALS, Op.NOT_EQUALS, Op.IN, Op.NOT_IN);
+            }
+        },
         CHILD_FILTER("childFilter") {
             @Override
             public List<Op> supportedOp() {
@@ -287,10 +293,10 @@ public record QueryFilter(
                 return List.of(Op.EQUALS);
             }
         },
-        MIN_LEVEL("level") {
+        LEVEL("level") {
             @Override
             public List<Op> supportedOp() {
-                return List.of(Op.EQUALS, Op.NOT_EQUALS);
+                return List.of(Op.GREATER_THAN_OR_EQUAL_TO, Op.LESS_THAN_OR_EQUAL_TO);
             }
         },
         PATH("path") {
@@ -392,7 +398,8 @@ public record QueryFilter(
             public List<Field> supportedField() {
                 return List.of(
                     Field.QUERY, Field.SCOPE, Field.NAMESPACE, Field.START_DATE,
-                    Field.END_DATE, Field.FLOW_ID, Field.TRIGGER_ID, Field.MIN_LEVEL, Field.EXECUTION_ID
+                    Field.END_DATE, Field.FLOW_ID, Field.TRIGGER_ID, Field.LEVEL, Field.EXECUTION_ID,
+                    Field.TASK_ID, Field.TASK_RUN_ID, Field.ATTEMPT_NUMBER
                 );
             }
         },
