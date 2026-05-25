@@ -7,7 +7,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import io.kestra.core.exceptions.InvalidQueryFiltersException;
+import com.google.common.annotations.VisibleForTesting;import io.kestra.core.exceptions.InvalidQueryFiltersException;
 import io.kestra.core.models.QueryFilter;
 import io.kestra.core.repositories.ArrayListTotal;
 import io.kestra.core.utils.RegexUtils;
@@ -37,6 +37,11 @@ public final class Searchable<T> {
         this.searchableExtractors = searchableExtractors;
         this.sortableExtractors = sortableExtractors;
         this.queryFilterPredicateMap = queryFilterPredicateMap;
+    }
+
+    @VisibleForTesting
+    public Set<QueryFilterPredicateKey> registeredPredicateKeys() {
+        return queryFilterPredicateMap.keySet();
     }
 
     public ArrayListTotal<T> filter(
@@ -143,13 +148,15 @@ public final class Searchable<T> {
             return this;
         }
 
-        public <F extends QueryFilter.Field, O extends QueryFilter.Op> Builder<T> searchableQueryFilterExtractor(
-            F field, O operator, Function<? super T, ?> fieldFunction) {
-            BiPredicate<Object, Object> defaultPredicate = defaultPredicateFor(operator, field);
-            BiPredicate<T, Object> predicate = (item, value) ->
-                defaultPredicate.test(fieldFunction.apply(item), value);
-
-            this.queryFilterPredicateMap.put(new QueryFilterPredicateKey(field, operator), predicate);
+        @SafeVarargs
+        public final <F extends QueryFilter.Field, O extends QueryFilter.Op> Builder<T> searchableQueryFilterExtractor(
+            F field, Function<? super T, ?> fieldFunction, O... operators) {
+            for (O operator : operators) {
+                BiPredicate<Object, Object> defaultPredicate = defaultPredicateFor(operator, field);
+                BiPredicate<T, Object> predicate = (item, value) ->
+                    defaultPredicate.test(fieldFunction.apply(item), value);
+                this.queryFilterPredicateMap.put(new QueryFilterPredicateKey(field, operator), predicate);
+            }
             return this;
         }
 

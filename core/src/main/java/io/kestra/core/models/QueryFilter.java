@@ -380,7 +380,7 @@ public record QueryFilter(
         NAMESPACE {
             @Override
             public List<Field> supportedField() {
-                return List.of(Field.NAMESPACE);
+                return List.of(Field.NAMESPACE, Field.QUERY);
             }
         },
         EXECUTION {

@@ -5,11 +5,16 @@ import java.util.Objects;
 
 import org.slf4j.event.Level;
 
+import io.kestra.core.contexts.configuration.SystemFlowsConfiguration;
 import io.kestra.core.models.QueryFilter;
+import io.kestra.core.models.flows.FlowScope;
 import io.kestra.core.models.namespaces.Namespace;
 import io.kestra.core.runners.FollowLogEvent;
 import io.kestra.core.services.FollowLogEventMatcher;
 import io.kestra.webserver.utils.Searchable;
+
+import java.time.Instant;
+import java.time.ZonedDateTime;
 
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Named;
@@ -24,77 +29,116 @@ public class SearchableFactory {
         return Searchable.<Namespace>builder()
             .searchableExtractor("id", Namespace::getId)
             .sortableExtractor("id", Namespace::getId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.QUERY, QueryFilter.Op.EQUALS, Namespace::getId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.EQUALS, Namespace::getId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.NOT_EQUALS, Namespace::getId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.CONTAINS, Namespace::getId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.STARTS_WITH, Namespace::getId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.ENDS_WITH, Namespace::getId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.REGEX, Namespace::getId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.IN, Namespace::getId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.NOT_IN, Namespace::getId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.PREFIX, Namespace::getId)
+            .searchableQueryFilterExtractor(QueryFilter.Field.QUERY, Namespace::getId, QueryFilter.Op.EQUALS, QueryFilter.Op.NOT_EQUALS)
+            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, Namespace::getId,
+                QueryFilter.Op.EQUALS, QueryFilter.Op.NOT_EQUALS, QueryFilter.Op.CONTAINS,
+                QueryFilter.Op.STARTS_WITH, QueryFilter.Op.ENDS_WITH, QueryFilter.Op.REGEX,
+                QueryFilter.Op.IN, QueryFilter.Op.NOT_IN, QueryFilter.Op.PREFIX)
             .build();
     }
 
-    /**
-     * Predicates for live filtering of {@link FollowLogEvent}s in the streaming pub/sub layer.
-     * Mirrors the QueryFilter contract for {@code Resource.LOG} so that the same filter list
-     * sent to {@code /logs/{executionId}/follow} drives both the historical replay (via the
-     * repository's {@code findAsync}) and the live tail (via this {@code Searchable}).
-     */
     @Singleton
-    @Named("FOLLOW_LOG_EVENT")
-    public Searchable<FollowLogEvent> followLogEventSearchable() {
+    @Named("LOG")
+    public Searchable<FollowLogEvent> followLogEventSearchable(SystemFlowsConfiguration systemFlowsConfiguration) {
+        String systemNamespace = systemFlowsConfiguration.namespace();
         return Searchable.<FollowLogEvent>builder()
-            // LEVEL needs typed Level.toInt() comparison — not amenable to the string-based defaults.
+            .searchableQueryFilterExtractor(QueryFilter.Field.QUERY, QueryFilter.Op.EQUALS,
+                (event, v) -> event.message() != null && event.message().contains(v.toString()))
+            .searchableQueryFilterExtractor(QueryFilter.Field.QUERY, QueryFilter.Op.NOT_EQUALS,
+                (event, v) -> event.message() == null || !event.message().contains(v.toString()))
+
+            .searchableQueryFilterExtractor(QueryFilter.Field.SCOPE, QueryFilter.Op.EQUALS,
+                (event, v) -> scopeMatches(event, v, systemNamespace))
+            .searchableQueryFilterExtractor(QueryFilter.Field.SCOPE, QueryFilter.Op.NOT_EQUALS,
+                (event, v) -> !scopeMatches(event, v, systemNamespace))
+            .searchableQueryFilterExtractor(QueryFilter.Field.SCOPE, QueryFilter.Op.IN,
+                (event, v) -> v instanceof List<?> list
+                    && list.stream().anyMatch(item -> scopeMatches(event, item, systemNamespace)))
+            .searchableQueryFilterExtractor(QueryFilter.Field.SCOPE, QueryFilter.Op.NOT_IN,
+                (event, v) -> !(v instanceof List<?> list)
+                    || list.stream().noneMatch(item -> scopeMatches(event, item, systemNamespace)))
+
+            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, FollowLogEvent::namespace,
+                QueryFilter.Op.EQUALS, QueryFilter.Op.NOT_EQUALS, QueryFilter.Op.CONTAINS,
+                QueryFilter.Op.STARTS_WITH, QueryFilter.Op.ENDS_WITH, QueryFilter.Op.REGEX,
+                QueryFilter.Op.IN, QueryFilter.Op.NOT_IN, QueryFilter.Op.PREFIX)
+
+            .searchableQueryFilterExtractor(QueryFilter.Field.START_DATE, QueryFilter.Op.GREATER_THAN_OR_EQUAL_TO,
+                (event, v) -> compareTimestamps(event, v) >= 0)
+            .searchableQueryFilterExtractor(QueryFilter.Field.START_DATE, QueryFilter.Op.GREATER_THAN,
+                (event, v) -> compareTimestamps(event, v) > 0)
+            .searchableQueryFilterExtractor(QueryFilter.Field.START_DATE, QueryFilter.Op.LESS_THAN_OR_EQUAL_TO,
+                (event, v) -> compareTimestamps(event, v) <= 0)
+            .searchableQueryFilterExtractor(QueryFilter.Field.START_DATE, QueryFilter.Op.LESS_THAN,
+                (event, v) -> compareTimestamps(event, v) < 0)
+            .searchableQueryFilterExtractor(QueryFilter.Field.START_DATE, QueryFilter.Op.EQUALS,
+                (event, v) -> compareTimestamps(event, v) == 0)
+            .searchableQueryFilterExtractor(QueryFilter.Field.START_DATE, QueryFilter.Op.NOT_EQUALS,
+                (event, v) -> compareTimestamps(event, v) != 0)
+
+            .searchableQueryFilterExtractor(QueryFilter.Field.END_DATE, QueryFilter.Op.GREATER_THAN_OR_EQUAL_TO,
+                (event, v) -> compareTimestamps(event, v) >= 0)
+            .searchableQueryFilterExtractor(QueryFilter.Field.END_DATE, QueryFilter.Op.GREATER_THAN,
+                (event, v) -> compareTimestamps(event, v) > 0)
+            .searchableQueryFilterExtractor(QueryFilter.Field.END_DATE, QueryFilter.Op.LESS_THAN_OR_EQUAL_TO,
+                (event, v) -> compareTimestamps(event, v) <= 0)
+            .searchableQueryFilterExtractor(QueryFilter.Field.END_DATE, QueryFilter.Op.LESS_THAN,
+                (event, v) -> compareTimestamps(event, v) < 0)
+            .searchableQueryFilterExtractor(QueryFilter.Field.END_DATE, QueryFilter.Op.EQUALS,
+                (event, v) -> compareTimestamps(event, v) == 0)
+            .searchableQueryFilterExtractor(QueryFilter.Field.END_DATE, QueryFilter.Op.NOT_EQUALS,
+                (event, v) -> compareTimestamps(event, v) != 0)
+
+            .searchableQueryFilterExtractor(QueryFilter.Field.FLOW_ID, FollowLogEvent::flowId,
+                QueryFilter.Op.EQUALS, QueryFilter.Op.NOT_EQUALS, QueryFilter.Op.CONTAINS,
+                QueryFilter.Op.STARTS_WITH, QueryFilter.Op.ENDS_WITH, QueryFilter.Op.REGEX,
+                QueryFilter.Op.IN, QueryFilter.Op.NOT_IN, QueryFilter.Op.PREFIX)
+
+            .searchableQueryFilterExtractor(QueryFilter.Field.TRIGGER_ID, FollowLogEvent::triggerId,
+                QueryFilter.Op.EQUALS, QueryFilter.Op.NOT_EQUALS, QueryFilter.Op.CONTAINS,
+                QueryFilter.Op.STARTS_WITH, QueryFilter.Op.ENDS_WITH, QueryFilter.Op.IN, QueryFilter.Op.NOT_IN)
+
             .searchableQueryFilterExtractor(QueryFilter.Field.LEVEL, QueryFilter.Op.GREATER_THAN_OR_EQUAL_TO,
                 (event, v) -> event.level() != null && event.level().toInt() >= toLevel(v).toInt())
             .searchableQueryFilterExtractor(QueryFilter.Field.LEVEL, QueryFilter.Op.LESS_THAN_OR_EQUAL_TO,
                 (event, v) -> event.level() != null && event.level().toInt() <= toLevel(v).toInt())
 
-            .searchableQueryFilterExtractor(QueryFilter.Field.EXECUTION_ID, QueryFilter.Op.EQUALS, FollowLogEvent::executionId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.EXECUTION_ID, QueryFilter.Op.NOT_EQUALS, FollowLogEvent::executionId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.EXECUTION_ID, QueryFilter.Op.IN, FollowLogEvent::executionId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.EXECUTION_ID, QueryFilter.Op.NOT_IN, FollowLogEvent::executionId)
+            .searchableQueryFilterExtractor(QueryFilter.Field.EXECUTION_ID, FollowLogEvent::executionId,
+                QueryFilter.Op.EQUALS, QueryFilter.Op.NOT_EQUALS, QueryFilter.Op.CONTAINS,
+                QueryFilter.Op.STARTS_WITH, QueryFilter.Op.ENDS_WITH, QueryFilter.Op.IN, QueryFilter.Op.NOT_IN)
 
-            .searchableQueryFilterExtractor(QueryFilter.Field.TASK_ID, QueryFilter.Op.EQUALS, FollowLogEvent::taskId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.TASK_ID, QueryFilter.Op.NOT_EQUALS, FollowLogEvent::taskId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.TASK_ID, QueryFilter.Op.IN, FollowLogEvent::taskId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.TASK_ID, QueryFilter.Op.NOT_IN, FollowLogEvent::taskId)
+            .searchableQueryFilterExtractor(QueryFilter.Field.TASK_ID, FollowLogEvent::taskId,
+                QueryFilter.Op.EQUALS, QueryFilter.Op.NOT_EQUALS, QueryFilter.Op.CONTAINS,
+                QueryFilter.Op.STARTS_WITH, QueryFilter.Op.ENDS_WITH, QueryFilter.Op.IN, QueryFilter.Op.NOT_IN)
 
-            .searchableQueryFilterExtractor(QueryFilter.Field.TASK_RUN_ID, QueryFilter.Op.EQUALS, FollowLogEvent::taskRunId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.TASK_RUN_ID, QueryFilter.Op.NOT_EQUALS, FollowLogEvent::taskRunId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.TASK_RUN_ID, QueryFilter.Op.IN, FollowLogEvent::taskRunId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.TASK_RUN_ID, QueryFilter.Op.NOT_IN, FollowLogEvent::taskRunId)
+            .searchableQueryFilterExtractor(QueryFilter.Field.TASK_RUN_ID, FollowLogEvent::taskRunId,
+                QueryFilter.Op.EQUALS, QueryFilter.Op.NOT_EQUALS, QueryFilter.Op.CONTAINS,
+                QueryFilter.Op.STARTS_WITH, QueryFilter.Op.ENDS_WITH, QueryFilter.Op.IN, QueryFilter.Op.NOT_IN)
 
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.EQUALS, FollowLogEvent::namespace)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.NOT_EQUALS, FollowLogEvent::namespace)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.STARTS_WITH, FollowLogEvent::namespace)
-            .searchableQueryFilterExtractor(QueryFilter.Field.NAMESPACE, QueryFilter.Op.PREFIX, FollowLogEvent::namespace)
-
-            .searchableQueryFilterExtractor(QueryFilter.Field.FLOW_ID, QueryFilter.Op.EQUALS, FollowLogEvent::flowId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.FLOW_ID, QueryFilter.Op.NOT_EQUALS, FollowLogEvent::flowId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.FLOW_ID, QueryFilter.Op.IN, FollowLogEvent::flowId)
-
-            .searchableQueryFilterExtractor(QueryFilter.Field.TRIGGER_ID, QueryFilter.Op.EQUALS, FollowLogEvent::triggerId)
-            .searchableQueryFilterExtractor(QueryFilter.Field.TRIGGER_ID, QueryFilter.Op.NOT_EQUALS, FollowLogEvent::triggerId)
-
-            .searchableQueryFilterExtractor(QueryFilter.Field.ATTEMPT_NUMBER, QueryFilter.Op.EQUALS, FollowLogEvent::attemptNumber)
-            .searchableQueryFilterExtractor(QueryFilter.Field.ATTEMPT_NUMBER, QueryFilter.Op.NOT_EQUALS, FollowLogEvent::attemptNumber)
-            .searchableQueryFilterExtractor(QueryFilter.Field.ATTEMPT_NUMBER, QueryFilter.Op.IN, FollowLogEvent::attemptNumber)
-            .searchableQueryFilterExtractor(QueryFilter.Field.ATTEMPT_NUMBER, QueryFilter.Op.NOT_IN, FollowLogEvent::attemptNumber)
+            .searchableQueryFilterExtractor(QueryFilter.Field.ATTEMPT_NUMBER, FollowLogEvent::attemptNumber,
+                QueryFilter.Op.EQUALS, QueryFilter.Op.NOT_EQUALS, QueryFilter.Op.IN, QueryFilter.Op.NOT_IN)
             .build();
     }
 
-    /**
-     * Expose the {@link FollowLogEvent} {@link Searchable} as a {@link FollowLogEventMatcher} so
-     * {@code LogStreamingService} (in core) can apply QueryFilters to live events without
-     * depending on the webserver-side {@code Searchable} class.
-     */
+    private static boolean scopeMatches(FollowLogEvent event, Object value, String systemNamespace) {
+        FlowScope desired = value instanceof FlowScope fs ? fs : FlowScope.valueOf(value.toString());
+        boolean isSystem = systemNamespace.equals(event.namespace());
+        return desired == FlowScope.SYSTEM ? isSystem : !isSystem;
+    }
+
+    private static int compareTimestamps(FollowLogEvent event, Object queryValue) {
+        if (event.timestamp() == null) {
+            return -1;
+        }
+        Instant target = queryValue instanceof Instant i ? i
+            : queryValue instanceof ZonedDateTime zdt ? zdt.toInstant()
+            : ZonedDateTime.parse(queryValue.toString()).toInstant();
+        return event.timestamp().compareTo(target);
+    }
+
     @Singleton
     public FollowLogEventMatcher followLogEventMatcher(
-        @Named("FOLLOW_LOG_EVENT") Searchable<FollowLogEvent> searchable
+        @Named("LOG") Searchable<FollowLogEvent> searchable
     ) {
         return searchable::matches;
     }

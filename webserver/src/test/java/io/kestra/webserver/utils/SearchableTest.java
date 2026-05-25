@@ -270,7 +270,7 @@ class SearchableTest {
     void shouldApplyStandardSemanticsForFunctionOverload(DefaultOperatorCase testCase) {
         // Given
         Searchable<String> searchable = Searchable.<String>builder()
-            .searchableQueryFilterExtractor(QueryFilter.Field.QUERY, testCase.op(), Function.identity())
+            .searchableQueryFilterExtractor(QueryFilter.Field.QUERY, Function.identity(), testCase.op())
             .build();
 
         // When
@@ -321,7 +321,7 @@ class SearchableTest {
     @Test
     void shouldThrowAtBuilderTimeForOpWithoutDefault() {
         assertThatThrownBy(() -> Searchable.<String>builder()
-                .searchableQueryFilterExtractor(QueryFilter.Field.QUERY, QueryFilter.Op.GREATER_THAN, Function.identity()))
+                .searchableQueryFilterExtractor(QueryFilter.Field.QUERY, Function.identity(), QueryFilter.Op.GREATER_THAN))
             .isInstanceOf(UnsupportedOperationException.class)
             .hasMessageContaining("GREATER_THAN")
             .hasMessageContaining("BiPredicate");
