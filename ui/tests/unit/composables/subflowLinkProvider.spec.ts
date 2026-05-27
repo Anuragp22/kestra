@@ -31,21 +31,18 @@ function fakeModel(path: string, value: string) {
 }
 
 describe("buildSubflowLinks", () => {
-    it("returns a Monaco link per subflow value on a flow model", () => {
+    it("returns one Monaco link on the flowId value of a flow model", () => {
         const model = fakeModel("inmemory://model/flow-123", SUBFLOW_SOURCE)
 
         const links = buildSubflowLinks(model)
 
-        expect(links).toHaveLength(2)
-        for (const link of links) {
-            expect(link.target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
-        }
+        expect(links).toHaveLength(1)
+        expect(links[0].target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
 
         // Range is derived from the resolver char offsets through getPositionAt.
         const flowIdOffset = SUBFLOW_SOURCE.indexOf("child_flow")
-        const flowIdLink = links.find((link) => link.range.startColumn === flowIdOffset + 1)
-        expect(flowIdLink).toBeDefined()
-        expect(flowIdLink!.range.endColumn).toBe(flowIdOffset + "child_flow".length + 1)
+        expect(links[0].range.startColumn).toBe(flowIdOffset + 1)
+        expect(links[0].range.endColumn).toBe(flowIdOffset + "child_flow".length + 1)
     })
 
     it("returns no links on a non-flow model", () => {

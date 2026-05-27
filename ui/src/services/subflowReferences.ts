@@ -46,7 +46,8 @@ function valueRange(node: unknown): [number, number] | undefined {
 
 /**
  * Finds every reference to another flow inside subflow-capable tasks of a flow
- * YAML source, returning the clickable value ranges and the resolved target.
+ * YAML source. Returns one link per task, on the `flowId` value, resolving to
+ * the referenced `{namespace, flowId}`.
  */
 export function resolveSubflowLinks(source: string): SubflowLink[] {
     const links: SubflowLink[] = []
@@ -80,14 +81,12 @@ export function resolveSubflowLinks(source: string): SubflowLink[] {
                 return
             }
 
-            const target = {namespace, flowId}
-            const namespaceRange = valueRange(namespaceNode)
+            // Only the flowId value is linked. The namespace is read to resolve the
+            // target but stays plain text: someone editing a flow wants to jump to the
+            // referenced flow, not to the namespace administration view.
             const flowIdRange = valueRange(flowIdNode)
-            if (namespaceRange) {
-                links.push({range: namespaceRange, target})
-            }
             if (flowIdRange) {
-                links.push({range: flowIdRange, target})
+                links.push({range: flowIdRange, target: {namespace, flowId}})
             }
         },
     })

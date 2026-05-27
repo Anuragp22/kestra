@@ -2,7 +2,7 @@ import {describe, it, expect} from "vitest"
 import {resolveSubflowLinks} from "../../../src/services/subflowReferences"
 
 describe("resolveSubflowLinks", () => {
-    it("links the namespace and flowId values of a Subflow task to the referenced flow", () => {
+    it("links the flowId value of a Subflow task to the referenced flow", () => {
         const source = [
             "id: parent",
             "namespace: company.team",
@@ -16,14 +16,12 @@ describe("resolveSubflowLinks", () => {
 
         const links = resolveSubflowLinks(source)
 
-        expect(links).toHaveLength(2)
-        for (const link of links) {
-            expect(link.target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
-        }
+        expect(links).toHaveLength(1)
+        expect(links[0].target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
 
-        const linkedValues = links.map((link) => source.slice(link.range[0], link.range[1]))
-        expect(linkedValues).toContain("other.namespace")
-        expect(linkedValues).toContain("child_flow")
+        // Only the flowId value is clickable; the namespace stays plain text.
+        const linkedValue = source.slice(links[0].range[0], links[0].range[1])
+        expect(linkedValue).toBe("child_flow")
     })
 
     it("returns no links when the flow has no subflow task", () => {
@@ -70,10 +68,8 @@ describe("resolveSubflowLinks", () => {
 
         const links = resolveSubflowLinks(source)
 
-        expect(links).toHaveLength(2)
-        for (const link of links) {
-            expect(link.target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
-        }
+        expect(links).toHaveLength(1)
+        expect(links[0].target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
     })
 
     it("links each subflow task independently when several are present", () => {
@@ -94,7 +90,7 @@ describe("resolveSubflowLinks", () => {
 
         const links = resolveSubflowLinks(source)
 
-        expect(links).toHaveLength(4)
+        expect(links).toHaveLength(2)
         const targets = links.map((link) => link.target)
         expect(targets).toContainEqual({namespace: "ns.one", flowId: "flow_one"})
         expect(targets).toContainEqual({namespace: "ns.two", flowId: "flow_two"})
@@ -117,7 +113,7 @@ describe("resolveSubflowLinks", () => {
 
         const links = resolveSubflowLinks(source)
 
-        expect(links).toHaveLength(2)
+        expect(links).toHaveLength(1)
         expect(links[0].target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
     })
 
@@ -133,7 +129,7 @@ describe("resolveSubflowLinks", () => {
         expect(Array.isArray(resolveSubflowLinks(source))).toBe(true)
     })
 
-    it("links the inner value of quoted namespace/flowId, excluding the quotes", () => {
+    it("links the inner value of a double-quoted flowId, excluding the quotes", () => {
         const source = [
             "tasks:",
             "  - id: s",
@@ -142,12 +138,12 @@ describe("resolveSubflowLinks", () => {
             "    flowId: \"child_flow\"",
         ].join("\n")
 
-        const covered = resolveSubflowLinks(source).map((link) => source.slice(link.range[0], link.range[1]))
+        const links = resolveSubflowLinks(source)
 
-        expect(covered).toContain("my.ns")
-        expect(covered).toContain("child_flow")
-        expect(covered).not.toContain("\"my.ns\"")
-        expect(covered).not.toContain("\"child_flow\"")
+        expect(links).toHaveLength(1)
+        expect(source.slice(links[0].range[0], links[0].range[1])).toBe("child_flow")
+        // namespace still resolves the target even though it is not itself linked.
+        expect(links[0].target).toEqual({namespace: "my.ns", flowId: "child_flow"})
     })
 
     it("skips a Subflow task whose flowId is an empty string", () => {
@@ -162,7 +158,7 @@ describe("resolveSubflowLinks", () => {
         expect(resolveSubflowLinks(source)).toEqual([])
     })
 
-    it("links the inner value of single-quoted namespace/flowId, excluding the quotes", () => {
+    it("links the inner value of a single-quoted flowId, excluding the quotes", () => {
         const source = [
             "tasks:",
             "  - id: s",
@@ -171,12 +167,11 @@ describe("resolveSubflowLinks", () => {
             "    flowId: 'child_flow'",
         ].join("\n")
 
-        const covered = resolveSubflowLinks(source).map((link) => source.slice(link.range[0], link.range[1]))
+        const links = resolveSubflowLinks(source)
 
-        expect(covered).toContain("my.ns")
-        expect(covered).toContain("child_flow")
-        expect(covered).not.toContain("'my.ns'")
-        expect(covered).not.toContain("'child_flow'")
+        expect(links).toHaveLength(1)
+        expect(source.slice(links[0].range[0], links[0].range[1])).toBe("child_flow")
+        expect(links[0].target).toEqual({namespace: "my.ns", flowId: "child_flow"})
     })
 
     it("does not link a numeric (non-string) flowId", () => {
@@ -219,9 +214,7 @@ describe("resolveSubflowLinks", () => {
 
         const links = resolveSubflowLinks(source)
 
-        expect(links).toHaveLength(2)
-        for (const link of links) {
-            expect(link.target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
-        }
+        expect(links).toHaveLength(1)
+        expect(links[0].target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
     })
 })

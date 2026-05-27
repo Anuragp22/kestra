@@ -46,7 +46,7 @@ describe("subflow link Uri round-trip", () => {
 })
 
 describe("buildSubflowLinks against a real Monaco model", () => {
-    it("maps ranges to the real namespace and flowId values", () => {
+    it("maps the flowId range to the real value on a Monaco model", () => {
         const model = monaco.editor.createModel(
             SUBFLOW_SOURCE,
             "yaml",
@@ -54,18 +54,16 @@ describe("buildSubflowLinks against a real Monaco model", () => {
         )
         try {
             const links = buildSubflowLinks(model)
-            expect(links).toHaveLength(2)
+            expect(links).toHaveLength(1)
 
-            const values = links.map((link) =>
-                model.getValueInRange(new monaco.Range(
-                    link.range.startLineNumber,
-                    link.range.startColumn,
-                    link.range.endLineNumber,
-                    link.range.endColumn,
-                )),
-            )
-            expect(values).toContain("other.namespace")
-            expect(values).toContain("child_flow")
+            const value = model.getValueInRange(new monaco.Range(
+                links[0].range.startLineNumber,
+                links[0].range.startColumn,
+                links[0].range.endLineNumber,
+                links[0].range.endColumn,
+            ))
+            expect(value).toBe("child_flow")
+            expect(links[0].target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
         } finally {
             model.dispose()
         }
