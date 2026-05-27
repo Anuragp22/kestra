@@ -15,7 +15,15 @@
                 }"
                 :searchInputFullWidth="true"
                 @search="handleSearch"
-            />
+            >
+                <template #extra>
+                    <KsSegmented
+                        :modelValue="sortBy"
+                        :options="sortOptions"
+                        @change="handleSortChange"
+                    />
+                </template>
+            </KSFilter>
         </KsRow>
         <section class="px-3 plugins-container">
             <KsTooltip
@@ -63,10 +71,10 @@
 <script setup lang="ts">
     import {ref, computed, onBeforeMount, watch} from "vue"
     import {useRoute, useRouter} from "vue-router"
-    import {KsTaskIcon} from "@kestra-io/design-system"
+    import {useI18n} from "vue-i18n"
+    import {KsTaskIcon, KsSegmented, KsFilter as KSFilter} from "@kestra-io/design-system"
     import {isEntryAPluginElementPredicate, isPluginMatched} from "../../utils/pluginUtils"
     import DottedLayout from "../layout/DottedLayout.vue"
-    import {KsFilter as KSFilter} from "@kestra-io/design-system"
     import {usePluginFilter} from "../filter/configurations"
     import headerImage from "../../assets/icons/plugin.svg"
     import headerImageDark from "../../assets/icons/plugin-dark.svg"
@@ -75,6 +83,7 @@
 
     const route = useRoute()
     const router = useRouter()
+    const {t} = useI18n()
     const pluginsStore = usePluginsStore()
 
     const pluginFilter = usePluginFilter()
@@ -90,9 +99,20 @@
 
     const icons = ref<Record<string, any>>({})
     const searchText = ref("")
+    const sortBy = ref<string>("name-asc")
+
+    const sortOptions = computed(() => [
+        {label: t("pluginPage.sort.name_asc"), value: "name-asc"},
+        {label: t("pluginPage.sort.name_desc"), value: "name-desc"},
+        {label: t("pluginPage.sort.most_tasks"), value: "most-tasks"},
+    ])
 
     const handleSearch = (query: string) => {
         searchText.value = query
+    }
+
+    const handleSortChange = (value: string | number | boolean) => {
+        sortBy.value = String(value)
     }
 
     const searchInput = computed(() => searchText.value.toLowerCase())
@@ -110,13 +130,25 @@
 
         return filtered
             .filter((plugin, index, self) =>
-                index === self.findIndex(t => t.title === plugin.title && t.group === plugin.group),
+                index === self.findIndex(p => p.title === plugin.title && p.group === plugin.group),
             )
             .filter(plugin => isPluginMatched(plugin, searchInput.value))
             .filter(plugin => isVisible(plugin))
             .sort((a, b) => {
+                if (sortBy.value === "most-tasks") {
+                    const countDiff = allElements(b).length - allElements(a).length
+                    if (countDiff !== 0) return countDiff
+                    // Fall back to alphabetical when counts are equal
+                    const nameA = a.manifest["X-Kestra-Title"].toLowerCase()
+                    const nameB = b.manifest["X-Kestra-Title"].toLowerCase()
+                    return nameA < nameB ? -1 : nameA > nameB ? 1 : 0
+                }
                 const nameA = a.manifest["X-Kestra-Title"].toLowerCase()
                 const nameB = b.manifest["X-Kestra-Title"].toLowerCase()
+                if (sortBy.value === "name-desc") {
+                    return nameA > nameB ? -1 : nameA < nameB ? 1 : 0
+                }
+                // Default: name-asc
                 return nameA < nameB ? -1 : nameA > nameB ? 1 : 0
             })
     })
