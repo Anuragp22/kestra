@@ -604,8 +604,6 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
         return autoCompletionProviders
     }
 
-    // Makes the namespace/flowId of subflow tasks clickable in the flow editor:
-    // cmd/ctrl+click opens the referenced flow in a new browser tab.
     private registerSubflowLinks(disposables: IDisposable[]) {
         const router = this.router
         if (!router) {

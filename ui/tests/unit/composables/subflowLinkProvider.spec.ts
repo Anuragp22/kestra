@@ -18,10 +18,6 @@ const SUBFLOW_SOURCE = [
     "    flowId: child_flow",
 ].join("\n")
 
-/**
- * Minimal Monaco model stub. `getPositionAt` uses a deterministic single-line
- * mapping (column = offset + 1) so range conversion can be asserted.
- */
 function fakeModel(path: string, value: string) {
     return {
         uri: {path},
@@ -39,7 +35,6 @@ describe("buildSubflowLinks", () => {
         expect(links).toHaveLength(1)
         expect(links[0].target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
 
-        // Range is derived from the resolver char offsets through getPositionAt.
         const flowIdOffset = SUBFLOW_SOURCE.indexOf("child_flow")
         expect(links[0].range.startColumn).toBe(flowIdOffset + 1)
         expect(links[0].range.endColumn).toBe(flowIdOffset + "child_flow".length + 1)

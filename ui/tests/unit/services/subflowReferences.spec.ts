@@ -19,7 +19,6 @@ describe("resolveSubflowLinks", () => {
         expect(links).toHaveLength(1)
         expect(links[0].target).toEqual({namespace: "other.namespace", flowId: "child_flow"})
 
-        // Only the flowId value is clickable; the namespace stays plain text.
         const linkedValue = source.slice(links[0].range[0], links[0].range[1])
         expect(linkedValue).toBe("child_flow")
     })
@@ -142,7 +141,6 @@ describe("resolveSubflowLinks", () => {
 
         expect(links).toHaveLength(1)
         expect(source.slice(links[0].range[0], links[0].range[1])).toBe("child_flow")
-        // namespace still resolves the target even though it is not itself linked.
         expect(links[0].target).toEqual({namespace: "my.ns", flowId: "child_flow"})
     })
 

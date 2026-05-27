@@ -7,12 +7,6 @@ export interface OpenFlowTarget {
     tab?: string
 }
 
-/**
- * Opens a flow (or one of its executions) in a new browser tab, preserving the
- * current tenant. Shared by the topology subflow "Open" button and the YAML
- * subflow links. The landing tab is caller-chosen via `target.tab`: YAML links
- * pass "edit", the topology button leaves it unset (defaults to overview).
- */
 export function openFlowInNewTab(target: OpenFlowTarget, router: Router): void {
     const tenant = router.currentRoute.value.params.tenant
 
