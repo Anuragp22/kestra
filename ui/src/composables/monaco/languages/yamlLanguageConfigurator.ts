@@ -19,6 +19,13 @@ import {
 } from "./pebbleLanguageConfigurator"
 import {usePluginsStore} from "../../../stores/plugins"
 import {useBlueprintsStore} from "../../../stores/blueprints"
+import type {Router} from "vue-router"
+import {
+    buildSubflowLinks,
+    createSubflowLinkOpener,
+    encodeSubflowTarget,
+    SUBFLOW_LINK_SCHEME,
+} from "./subflowLinkProvider"
 import IPosition = monaco.IPosition;
 import IDisposable = monaco.IDisposable;
 import IModel = monaco.editor.IModel;
@@ -100,10 +107,12 @@ function filterMissingRequiredTaskProperties({
 
 export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
     private readonly yamlAutoCompletionObject: YamlAutoCompletion
+    private readonly router?: Router
 
-    constructor(yamlAutoCompletion: YamlAutoCompletion) {
+    constructor(yamlAutoCompletion: YamlAutoCompletion, router?: Router) {
         super("yaml")
         this.yamlAutoCompletionObject = yamlAutoCompletion
+        this.router = router
     }
 
     async configureLanguage(pluginsStore: ReturnType<typeof usePluginsStore>) {
@@ -590,6 +599,39 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
             ["yaml", "plaintext"],
         )
 
+        this.registerSubflowLinks(autoCompletionProviders)
+
         return autoCompletionProviders
+    }
+
+    // Makes the namespace/flowId of subflow tasks clickable in the flow editor:
+    // cmd/ctrl+click opens the referenced flow in a new browser tab.
+    private registerSubflowLinks(disposables: IDisposable[]) {
+        const router = this.router
+        if (!router) {
+            return
+        }
+
+        disposables.push(
+            monaco.languages.registerLinkProvider("yaml", {
+                provideLinks(model) {
+                    return {
+                        links: buildSubflowLinks(model).map((link) => ({
+                            range: link.range,
+                            url: monaco.Uri.from({
+                                scheme: SUBFLOW_LINK_SCHEME,
+                                path: "/open",
+                                query: encodeSubflowTarget(link.target),
+                            }),
+                            tooltip: `${link.target.namespace} / ${link.target.flowId}`,
+                        })),
+                    }
+                },
+            }),
+        )
+
+        disposables.push(
+            monaco.editor.registerLinkOpener(createSubflowLinkOpener(router)),
+        )
     }
 }

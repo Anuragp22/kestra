@@ -138,9 +138,10 @@
     import {usePluginsStore} from "../../stores/plugins"
     import {useFlowStore} from "../../stores/flow"
     import EditorType = editor.EditorType;
-    import {useRoute} from "vue-router"
+    import {useRoute, useRouter} from "vue-router"
 
     const {t} = useI18n()
+    const router = useRouter()
 
     const textAreaValue = computed({
         get() {
@@ -587,6 +588,7 @@
                 props.diffEditor ? undefined : editorResolved.value as ICodeEditor,
                 props.language,
                 props.schemaType,
+                router,
             )
         }
 
